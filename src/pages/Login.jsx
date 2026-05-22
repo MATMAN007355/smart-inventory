@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -227,13 +230,6 @@ const styles = `
   .sl-signup-link a { color: #2563eb; font-weight: 600; text-decoration: none; }
   .sl-signup-link a:hover { text-decoration: underline; }
 
-  .sl-global-err {
-    background: #fef2f2; border: 1px solid #fecaca;
-    border-radius: 8px; padding: 12px 14px;
-    font-size: 13px; color: #dc2626;
-    margin-bottom: 18px; display: flex; gap: 8px; align-items: flex-start;
-  }
-
   /* Forgot password modal */
   .sl-overlay {
     position: fixed; inset: 0;
@@ -279,100 +275,133 @@ const styles = `
 
 /* ── SVG helpers ── */
 const MailIcon = () => (
-  <svg className="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/>
+  <svg
+    className="sl-ico"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <polyline points="2,4 12,13 22,4" />
   </svg>
 );
+
 const LockIcon = () => (
-  <svg className="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  <svg
+    className="sl-ico"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 );
+
 const EyeIcon = ({ off }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: off ? 0.45 : 1 }}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     {off ? (
       <>
-        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+        <line x1="1" y1="1" x2="23" y2="23" />
       </>
     ) : (
       <>
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-        <circle cx="12" cy="12" r="3"/>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
       </>
     )}
   </svg>
 );
+
 const CheckIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="2,6 5,9 10,3"/>
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 12 12"
+    fill="none"
+    stroke="#fff"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="2,6 5,9 10,3" />
   </svg>
 );
-const AlertIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-  </svg>
-);
+
 const GoogleG = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908C16.658 14.233 17.64 11.925 17.64 9.2z" fill="#4285F4"/>
-    <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-    <path d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
-    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 18 18"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908C16.658 14.233 17.64 11.925 17.64 9.2z"
+      fill="#4285F4"
+    />
+    <path
+      d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
+      fill="#34A853"
+    />
+    <path
+      d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"
+      fill="#EA4335"
+    />
   </svg>
 );
 
 /* ── Validation ── */
 function validate(fields) {
   const errs = {};
-  if (!fields.email.trim())    errs.email    = "Email is required";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) errs.email = "Enter a valid email";
-  if (!fields.password)        errs.password = "Password is required";
+  if (!fields.email.trim()) errs.email = "Email is required";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email))
+    errs.email = "Enter a valid email";
+  if (!fields.password) errs.password = "Password is required";
   return errs;
-}
-
-/* ── localStorage Auth ── */
-function authenticateUser(email, password) {
-  const users = JSON.parse(localStorage.getItem("si_users") || "[]");
-
-  // Find user by email (case-insensitive)
-  const user = users.find(u => u.email === email.trim().toLowerCase());
-
-  if (!user) {
-    throw new Error("No account found with this email. Please sign up first.");
-  }
-
-  if (user.password !== password) {
-    throw new Error("Incorrect password. Please try again.");
-  }
-
-  // Return safe user object (no password)
-  const { password: _pw, ...safeUser } = user;
-  return safeUser;
 }
 
 /* ── Forgot Password Modal ── */
 function ForgotModal({ onClose }) {
-  const [email, setEmail]     = useState("");
-  const [error, setError]     = useState("");
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent]       = useState(false);
+  const [sent, setSent] = useState(false);
 
   const handleSend = async () => {
-    if (!email.trim()) { setError("Email is required"); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Enter a valid email"); return; }
-
-    // Check if email exists in localStorage
-    const users = JSON.parse(localStorage.getItem("si_users") || "[]");
-    const exists = users.some(u => u.email === email.trim().toLowerCase());
-    if (!exists) { setError("No account found with this email."); return; }
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Enter a valid email");
+      return;
+    }
 
     setLoading(true);
     setError("");
     try {
       await new Promise((res) => setTimeout(res, 1400));
       setSent(true);
+      toast.success("Reset token triggered successfully.");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -381,25 +410,47 @@ function ForgotModal({ onClose }) {
   };
 
   return (
-    <div className="sl-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="sl-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="sl-modal">
         {sent ? (
           <div className="sl-modal-success">
             <div className="sl-modal-success-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#16a34a"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
             <h4>Check your inbox</h4>
-            <p>We sent a password reset link to<br /><strong>{email}</strong></p>
-            <button className="sl-btn-primary" style={{ marginTop: 24 }} onClick={onClose}>
+            <p>
+              We sent a password reset link to
+              <br />
+              <strong>{email}</strong>
+            </p>
+            <button
+              className="sl-btn-primary"
+              style={{ marginTop: 24 }}
+              onClick={onClose}
+            >
               Back to Sign In
             </button>
           </div>
         ) : (
           <>
             <h3>Forgot password?</h3>
-            <p>Enter your email and we'll send you a link to reset your password.</p>
+            <p>
+              Enter your email and we'll send you a link to reset your password.
+            </p>
             <div className="sl-field">
               <label>Email address</label>
               <div className="sl-input-wrap">
@@ -408,7 +459,10 @@ function ForgotModal({ onClose }) {
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError("");
+                  }}
                   className={error ? "sl-error" : ""}
                   autoFocus
                 />
@@ -416,9 +470,22 @@ function ForgotModal({ onClose }) {
               {error && <span className="sl-err-msg">{error}</span>}
             </div>
             <div className="sl-modal-actions">
-              <button className="sl-btn-secondary" onClick={onClose}>Cancel</button>
-              <button className="sl-btn-primary" style={{ flex: 1 }} onClick={handleSend} disabled={loading}>
-                {loading ? <><span className="sl-spinner" /> Sending…</> : "Send Reset Link"}
+              <button className="sl-btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                className="sl-btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSend}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="sl-spinner" /> Sending…
+                  </>
+                ) : (
+                  "Send Reset Link"
+                )}
               </button>
             </div>
           </>
@@ -431,55 +498,85 @@ function ForgotModal({ onClose }) {
 /* ── Main Component ── */
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
-  const [fields, setFields]     = useState({ email: "", password: "" });
+  const [fields, setFields] = useState({ email: "", password: "" });
   const [remember, setRemember] = useState(false);
-  const [showPw, setShowPw]     = useState(false);
-  const [errors, setErrors]     = useState({});
-  const [globalErr, setGlobalErr] = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem("si_remember_email");
+    if (rememberedEmail) {
+      setFields((f) => ({ ...f, email: rememberedEmail }));
+      setRemember(true);
+    }
+  }, []);
 
   const set = (key) => (e) => {
     setFields((f) => ({ ...f, [key]: e.target.value }));
-    setErrors((er) => { const n = { ...er }; delete n[key]; return n; });
-    setGlobalErr("");
+    setErrors((er) => {
+      const n = { ...er };
+      delete n[key];
+      return n;
+    });
   };
 
   const handleSubmit = async () => {
     const errs = validate(fields);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      return;
+    }
 
     setLoading(true);
-    setGlobalErr("");
     try {
-      await new Promise((res) => setTimeout(res, 800)); // small UX delay
+      const result = await login(fields.email, fields.password);
+      console.log("Auth System Server Response:", result);
 
-      // Authenticate against localStorage
-      const user = authenticateUser(fields.email, fields.password);
+      if (result?.success) {
+        if (remember) {
+          localStorage.setItem(
+            "si_remember_email",
+            fields.email.trim().toLowerCase(),
+          );
+        } else {
+          localStorage.removeItem("si_remember_email");
+        }
 
-      // Save session
-      localStorage.setItem("si_current_user", JSON.stringify(user));
+        const userData = result.data;
+        toast.success(`Welcome back, ${userData?.first_name || "User"}!`);
 
-      // If "Remember me" is checked, persist a flag
-      if (remember) {
-        localStorage.setItem("si_remember_email", fields.email.trim().toLowerCase());
+        const userRole = userData?.role?.toLowerCase();
+        
+        // 🔀 Active routing configuration based on response data path:
+        if (userRole === "admin") {
+          navigate("/dashboard");
+        } else {
+          navigate("/staff-portal");
+        }
       } else {
-        localStorage.removeItem("si_remember_email");
+        toast.error(
+          result?.message || "Invalid credentials combination parameters.",
+        );
       }
-
-      // Redirect to dashboard
-      navigate("/dashboard");
-
     } catch (err) {
-      setGlobalErr(err.message || "Something went wrong. Please try again.");
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Authentication layer connection error.";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogle = () => {
-    alert("Google sign-in — wire up your OAuth provider here.");
+    toast.info(
+      "Google OAuth provider synchronization is pending config setup.",
+    );
   };
 
   const handleKeyDown = (e) => {
@@ -490,18 +587,33 @@ function Login() {
     <>
       <style>{styles}</style>
 
+      <ToastContainer
+        position="top-right"
+        autoClose={3500}
+        hideProgressBar={false}
+        theme="colored"
+      />
+
       {showForgot && <ForgotModal onClose={() => setShowForgot(false)} />}
 
       <div className="sl-page">
-
-        {/* ── LEFT ── */}
+        {/* ── LEFT PANEL ── */}
         <aside className="sl-left">
           <div className="sl-brand">
             <div className="sl-brand-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
             <div>
@@ -512,11 +624,21 @@ function Login() {
 
           <div className="sl-left-body">
             <h1>Smart Inventory Management</h1>
-            <p>Track, manage, and optimize your inventory in real-time. Streamline operations and grow your business with SmartInventory.</p>
+            <p>
+              Track, manage, and optimize your inventory in real-time.
+              Streamline operations and grow your business with SmartInventory.
+            </p>
             <ul className="sl-features">
-              {["Real-time stock tracking", "Low stock alerts", "Purchase order management", "Comprehensive reports"].map((f) => (
+              {[
+                "Real-time stock tracking",
+                "Low stock alerts",
+                "Purchase order management",
+                "Comprehensive reports",
+              ].map((f) => (
                 <li key={f} className="sl-feature-item">
-                  <span className="sl-feat-dot"><CheckIcon /></span>
+                  <span className="sl-feat-dot">
+                    <CheckIcon />
+                  </span>
                   {f}
                 </li>
               ))}
@@ -541,7 +663,7 @@ function Login() {
           </div>
         </aside>
 
-        {/* ── RIGHT ── */}
+        {/* ── RIGHT PANEL ── */}
         <main className="sl-right">
           <div className="sl-card">
             <div className="sl-card-header">
@@ -549,14 +671,7 @@ function Login() {
               <p>Sign in to your account to continue</p>
             </div>
 
-            {globalErr && (
-              <div className="sl-global-err">
-                <AlertIcon />
-                {globalErr}
-              </div>
-            )}
-
-            {/* Email */}
+            {/* Email Field */}
             <div className="sl-field">
               <label>Email address</label>
               <div className="sl-input-wrap">
@@ -570,10 +685,12 @@ function Login() {
                   className={errors.email ? "sl-error" : ""}
                 />
               </div>
-              {errors.email && <span className="sl-err-msg">{errors.email}</span>}
+              {errors.email && (
+                <span className="sl-err-msg">{errors.email}</span>
+              )}
             </div>
 
-            {/* Password */}
+            {/* Password Field */}
             <div className="sl-field">
               <label>Password</label>
               <div className="sl-input-wrap">
@@ -586,14 +703,20 @@ function Login() {
                   onKeyDown={handleKeyDown}
                   className={errors.password ? "sl-error" : ""}
                 />
-                <button className="sl-toggle-pw" type="button" onClick={() => setShowPw((v) => !v)}>
-                  <EyeIcon off={showPw} />
+                <button
+                  className="sl-toggle-pw"
+                  type="button"
+                  onClick={() => setShowPw((v) => !v)}
+                >
+                  <EyeIcon off={!showPw} />
                 </button>
               </div>
-              {errors.password && <span className="sl-err-msg">{errors.password}</span>}
+              {errors.password && (
+                <span className="sl-err-msg">{errors.password}</span>
+              )}
             </div>
 
-            {/* Remember me + Forgot password */}
+            {/* Actions Panel */}
             <div className="sl-row-inline">
               <div className="sl-remember">
                 <input
@@ -604,14 +727,31 @@ function Login() {
                 />
                 <label htmlFor="sl-remember">Remember me</label>
               </div>
-              <a href="#" className="sl-forgot" onClick={(e) => { e.preventDefault(); setShowForgot(true); }}>
+              <a
+                href="#"
+                className="sl-forgot"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowForgot(true);
+                }}
+              >
                 Forgot password?
               </a>
             </div>
 
-            {/* Submit */}
-            <button className="sl-btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? <><span className="sl-spinner" /> Signing in…</> : "Sign In"}
+            {/* Primary Submit Button */}
+            <button
+              className="sl-btn-primary"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <span className="sl-spinner" /> Signing in…
+                </>
+              ) : (
+                "Sign In"
+              )}
             </button>
 
             <div className="sl-divider">or</div>
@@ -620,12 +760,11 @@ function Login() {
               <GoogleG /> Continue with Google
             </button>
 
-            <p className="sl-signup-link">
+            {/* <p className="sl-signup-link">
               Don't have an account? <a href="/signup">Sign up</a>
-            </p>
+            </p> */}
           </div>
         </main>
-
       </div>
     </>
   );

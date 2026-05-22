@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useSettings } from "./settings";
 
+// ─── Data ────────────────────────────────────────────────────────────────────
+
 const ALL_ALERTS = [
   {
     id: 1,
@@ -164,8 +166,12 @@ function loadNotifSettings() {
   }
 }
 
+// ─── Shared styles ────────────────────────────────────────────────────────────
+
 const cardClass = "bg-slate-900 border border-slate-700 rounded-xl p-6";
 const selectClass = "text-xs border border-slate-600 rounded-lg px-2 py-1 outline-none bg-slate-800 text-slate-300";
+
+// ─── Toggle Switch ────────────────────────────────────────────────────────────
 
 function Toggle({ on, onToggle }) {
   return (
@@ -179,6 +185,8 @@ function Toggle({ on, onToggle }) {
     </div>
   );
 }
+
+// ─── Notification Settings Modal ──────────────────────────────────────────────
 
 function NotificationSettingsModal({ onClose, onSettingsSaved }) {
   const [settings, setSettings] = useState(loadNotifSettings);
@@ -250,6 +258,8 @@ function NotificationSettingsModal({ onClose, onSettingsSaved }) {
   );
 }
 
+// ─── View Alert Modal ─────────────────────────────────────────────────────────
+
 function ViewAlertModal({ alert, onClose, onMarkResolved }) {
   return (
     <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
@@ -316,6 +326,8 @@ function ViewAlertModal({ alert, onClose, onMarkResolved }) {
     </div>
   );
 }
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 function Alerts() {
   const { inventoryToggles } = useSettings();
@@ -401,6 +413,7 @@ function Alerts() {
   return (
     <main className="flex-1 bg-slate-800 p-8">
 
+      {/* Modals */}
       {showNotifSettings && (
         <NotificationSettingsModal
           onClose={() => setShowNotifSettings(false)}
@@ -415,6 +428,7 @@ function Alerts() {
         />
       )}
 
+      {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Alerts</h1>
@@ -436,6 +450,7 @@ function Alerts() {
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className={`bg-slate-900 border border-slate-700 p-5 rounded-xl transition-opacity ${!notifSettings.critical ? "opacity-40" : ""}`}>
           <p className="text-red-400 font-semibold text-sm mb-2">Critical Alerts</p>
@@ -459,6 +474,7 @@ function Alerts() {
         </div>
       </div>
 
+      {/* Disabled severity banner */}
       {(!notifSettings.critical || !notifSettings.warning || !notifSettings.info || !lowStockAlertsEnabled) && (
         <div className="mb-4 px-4 py-3 bg-yellow-950 border border-yellow-800 rounded-xl text-xs text-yellow-400 flex items-center gap-2">
           ⚠️ Some alert types are hidden based on your Notification Settings.
@@ -466,6 +482,7 @@ function Alerts() {
         </div>
       )}
 
+      {/* Tabs + Filters */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
         <div className="flex items-center gap-6 text-sm font-medium text-slate-500 border-b border-slate-700">
           {["All Alerts", "Critical", "Warning", "Info", "Resolved"].map((tab) => (
@@ -518,6 +535,7 @@ function Alerts() {
         </div>
       </div>
 
+      {/* Table */}
       <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-x-auto">
         <table className="w-full text-sm text-slate-400">
           <thead className="text-xs text-slate-500 border-b border-slate-700">
@@ -581,6 +599,7 @@ function Alerts() {
         </table>
       </div>
 
+      {/* Pagination */}
       <div className="flex items-center justify-between mt-6 text-sm text-slate-500">
         <p>
           Showing {filtered.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1} to{" "}

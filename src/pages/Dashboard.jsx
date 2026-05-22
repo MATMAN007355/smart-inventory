@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+// Import your custom Axios instance
+import apiClient from "../api/client"; 
 
 const lineData7Days = [
   { day: "May 12", value: 180000 },
@@ -42,11 +46,21 @@ function Dashboard() {
   const [reorderItem, setReorderItem] = useState(null);
   const [reorderQty, setReorderQty] = useState(10);
   const [reorderSuccess, setReorderSuccess] = useState(false);
+  
+  // Modals and Loaders
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [isAddingProduct, setIsAddingProduct] = useState(false); // Loader state
   const [showCreatePO, setShowCreatePO] = useState(false);
-  const [addProductSuccess, setAddProductSuccess] = useState(false);
   const [createPOSuccess, setCreatePOSuccess] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: "", sku: "", qty: "", category: "" });
+
+  const [newProduct, setNewProduct] = useState({ 
+    product_name: "", 
+    sku: "", 
+    quantity: "", 
+    category: "",
+    price: "" 
+  });
+  
   const [newPO, setNewPO] = useState({ supplier: "", product: "", qty: "", notes: "" });
   const navigate = useNavigate();
 
@@ -64,16 +78,39 @@ function Dashboard() {
       setReorderSuccess(false);
       setReorderItem(null);
       setReorderQty(10);
+      toast.success("Stock reorder request sent successfully!");
     }, 2000);
   };
 
-  const handleAddProductConfirm = () => {
-    setAddProductSuccess(true);
-    setTimeout(() => {
-      setAddProductSuccess(false);
+  // Modernized Async API handler for adding products
+  const handleAddProductConfirm = async (e) => {
+    if (e) e.preventDefault();
+    setIsAddingProduct(true);
+
+    const payload = {
+      product_name: newProduct.product_name,
+      sku: newProduct.sku || undefined, // Sends SKU if present, skips if blank
+      quantity: Number(newProduct.quantity),
+      category: newProduct.category.toLowerCase(),
+      price: Number(newProduct.price)
+    };
+
+    try {
+      // POST target matching your endpoint configuration
+      await apiClient.post("/products", payload);
+      
+      toast.success(`Successfully added "${payload.product_name}" to database!`);
       setShowAddProduct(false);
-      setNewProduct({ name: "", sku: "", qty: "", category: "" });
-    }, 2000);
+      setNewProduct({ product_name: "", sku: "", quantity: "", category: "", price: "" });
+    } catch (error) {
+      console.error("Failed to add product:", error);
+      
+      // Pull API error message if backend returns one, fallback to standard text
+      const errorMsg = error.response?.data?.message || "Could not save product. Please try again.";
+      toast.error(errorMsg);
+    } finally {
+      setIsAddingProduct(false);
+    }
   };
 
   const handleCreatePOConfirm = () => {
@@ -82,21 +119,23 @@ function Dashboard() {
       setCreatePOSuccess(false);
       setShowCreatePO(false);
       setNewPO({ supplier: "", product: "", qty: "", notes: "" });
+      toast.info("Purchase order generated cleanly.");
     }, 2000);
   };
 
   const inputClass =
-    "w-full px-4 py-2 border border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 text-slate-100 placeholder-slate-400";
+    "w-full px-4 py-2 border border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 text-slate-100 placeholder-slate-400 disabled:opacity-50";
 
   return (
-    <main className="flex-1 bg-slate-800 p-8">
+    <main className="flex-1 bg-slate-800 p-8 relative min-h-screen">
 
+      {/* Reorder Modal */}
       {reorderItem && (
         <div className="fixed inset-0 bg-slate-950 bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 w-full max-w-md">
             {reorderSuccess ? (
               <div className="flex flex-col items-center justify-center gap-3 py-6">
-                <span className="text-4xl">✅</span>
+                <span className="text-4xl">==</span>
                 <p className="text-slate-100 font-semibold text-lg">Reorder Placed!</p>
                 <p className="text-slate-400 text-sm">Your order for {reorderItem.product} has been submitted.</p>
               </div>
@@ -131,66 +170,139 @@ function Dashboard() {
         </div>
       )}
 
+      {/* Add Product Modal */}
       {showAddProduct && (
-        <div className="fixed inset-0 bg-slate-950 bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 w-full max-w-md">
-            {addProductSuccess ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-6">
-                <span className="text-4xl">✅</span>
-                <p className="text-slate-100 font-semibold text-lg">Product Added!</p>
-                <p className="text-slate-400 text-sm">Your new product has been added to inventory.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => !isAddingProduct && setShowAddProduct(false)} />
+
+          <div className="relative w-full max-w-md p-6 overflow-hidden rounded-2xl bg-[#0F172B] border border-slate-800 shadow-2xl z-10">
+            <form onSubmit={handleAddProductConfirm}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-slate-100">Add Product</h2>
+                <button 
+                  type="button"
+                  disabled={isAddingProduct}
+                  onClick={() => setShowAddProduct(false)} 
+                  className="p-1 text-xl text-slate-400 transition-colors rounded-lg hover:text-slate-200 disabled:opacity-30"
+                >
+                  ✕
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-slate-100">Add Product</h2>
-                  <button onClick={() => setShowAddProduct(false)} className="text-slate-400 hover:text-slate-200 text-xl">✕</button>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-slate-400">Product Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    disabled={isAddingProduct}
+                    placeholder="e.g. Big Bull Rice" 
+                    value={newProduct.product_name}
+                    onChange={(e) => setNewProduct({ ...newProduct, product_name: e.target.value })} 
+                    className={inputClass} 
+                  />
                 </div>
-                <div className="space-y-4 mb-6">
+
+                {/* <div>
+                  <label className="block mb-1 text-xs font-medium text-slate-400">SKU (Optional)</label>
+                  <input 
+                    type="text" 
+                    disabled={isAddingProduct}
+                    placeholder="e.g. BBR-20KG" 
+                    value={newProduct.sku}
+                    onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} 
+                    className={inputClass} 
+                  />
+                </div> */}
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 block">Product Name</label>
-                    <input type="text" placeholder="e.g. Wireless Mouse" value={newProduct.name}
-                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} className={inputClass} />
+                    <label className="block mb-1 text-xs font-medium text-slate-400">Quantity</label>
+                    <input 
+                      type="number" 
+                      required
+                      disabled={isAddingProduct}
+                      min={0} 
+                      placeholder="20" 
+                      value={newProduct.quantity}
+                      onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })} 
+                      className={inputClass} 
+                    />
                   </div>
+
                   <div>
-                    <label className="text-xs text-slate-400 mb-1 block">SKU</label>
-                    <input type="text" placeholder="e.g. WM-1005" value={newProduct.sku}
-                      onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">Initial Quantity</label>
-                    <input type="number" min={0} placeholder="e.g. 50" value={newProduct.qty}
-                      onChange={(e) => setNewProduct({ ...newProduct, qty: e.target.value })} className={inputClass} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-400 mb-1 block">Category</label>
-                    <select value={newProduct.category}
-                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} className={inputClass}>
-                      <option value="">Select category</option>
-                      <option>Electronics</option>
-                      <option>Groceries</option>
-                      <option>Furniture</option>
-                      <option>Office Supplies</option>
-                      <option>Accessories</option>
-                    </select>
+                    <label className="block mb-1 text-xs font-medium text-slate-400">Price</label>
+                    <input 
+                      type="number" 
+                      required
+                      disabled={isAddingProduct}
+                      min={0} 
+                      placeholder="50000" 
+                      value={newProduct.price}
+                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} 
+                      className={inputClass} 
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setShowAddProduct(false)} className="flex-1 px-4 py-2 border border-slate-600 rounded-xl text-sm text-slate-300 hover:bg-slate-700">Cancel</button>
-                  <button onClick={handleAddProductConfirm} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm hover:bg-indigo-500">Add Product</button>
+
+                <div>
+                  <label className="block mb-1 text-xs font-medium text-slate-400">Category</label>
+                  <select 
+                    required
+                    disabled={isAddingProduct}
+                    value={newProduct.category}
+                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} 
+                    className={inputClass}
+                  >
+                    <option value="">Select category</option>
+                    <option value="Food">Food / Groceries</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Furniture">Furniture</option>
+                    <option value="Office Supplies">Office Supplies</option>
+                    <option value="Accessories">Accessories</option>
+                  </select>
                 </div>
-              </>
-            )}
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button 
+                  type="button"
+                  disabled={isAddingProduct}
+                  onClick={() => setShowAddProduct(false)} 
+                  className="flex-1 px-4 py-2.5 text-sm font-medium border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isAddingProduct}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20 disabled:bg-indigo-800 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isAddingProduct ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    "Add Product"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-
+         
+      {/* Create PO Modal */}
       {showCreatePO && (
         <div className="fixed inset-0 bg-slate-950 bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 w-full max-w-md">
             {createPOSuccess ? (
               <div className="flex flex-col items-center justify-center gap-3 py-6">
-                <span className="text-4xl">✅</span>
+                <span className="text-4xl">==</span>
                 <p className="text-slate-100 font-semibold text-lg">Purchase Order Created!</p>
                 <p className="text-slate-400 text-sm">Your purchase order has been submitted.</p>
               </div>
@@ -233,6 +345,7 @@ function Dashboard() {
         </div>
       )}
 
+      {/* Top Section */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Dashboard</h1>
@@ -250,12 +363,13 @@ function Dashboard() {
             />
           </div>
           <select className="text-sm border border-slate-600 rounded-xl px-3 py-2 bg-slate-900 text-slate-300 outline-none">
-            <option>May 12 – May 18, 2024</option>
+            <option>May 12 – May 18, 2026</option>
             <option>Last 30 Days</option>
           </select>
         </div>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Total Inventory Value</p>
@@ -279,8 +393,10 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
+        {/* Line Chart */}
         <div className="lg:col-span-1 bg-slate-900 p-6 rounded-xl border border-slate-700 h-72">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Inventory Value Over Time</h2>
@@ -309,6 +425,7 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
 
+        {/* Donut Chart */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 h-72">
           <h2 className="text-sm font-semibold text-slate-200 mb-2">Stock Status Overview</h2>
           <div className="flex items-center gap-2">
@@ -320,10 +437,10 @@ function Dashboard() {
               </Pie>
             </PieChart>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li className="flex justify-between gap-4"><span>🟢 In Stock</span><span>782 (62.7%)</span></li>
-              <li className="flex justify-between gap-4"><span>🟡 Low Stock</span><span>23 (18.4%)</span></li>
-              <li className="flex justify-between gap-4"><span>🔴 Out of Stock</span><span>15 (12.0%)</span></li>
-              <li className="flex justify-between gap-4"><span>🔵 Overstock</span><span>23 (6.9%)</span></li>
+              <li className="flex justify-between gap-4"><span>== In Stock</span><span>782 (62.7%)</span></li>
+              <li className="flex justify-between gap-4"><span>== Low Stock</span><span>23 (18.4%)</span></li>
+              <li className="flex justify-between gap-4"><span>== Out of Stock</span><span>15 (12.0%)</span></li>
+              <li className="flex justify-between gap-4"><span>== Overstock</span><span>23 (6.9%)</span></li>
             </ul>
           </div>
           <div className="flex justify-between mt-2 text-sm font-semibold text-slate-200 border-t border-slate-700 pt-3">
@@ -332,6 +449,7 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Recent Alerts */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 h-72">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Recent Alerts</h2>
@@ -357,7 +475,7 @@ function Dashboard() {
             <li className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-200">PO #1052 is delayed</p>
-                <p className="text-xs text-slate-500">Expected May 20, 2024</p>
+                <p className="text-xs text-slate-500">Expected May 20, 2026</p>
               </div>
               <span className="text-xs text-slate-500 whitespace-nowrap">3h ago</span>
             </li>
@@ -373,8 +491,10 @@ function Dashboard() {
 
       </div>
 
+      {/* Bottom Tables Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
+        {/* Top Low Stock Items */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Top Low Stock Items</h2>
@@ -421,6 +541,7 @@ function Dashboard() {
           </table>
         </div>
 
+        {/* Recent Stock Movements */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Recent Stock Movements</h2>
@@ -440,28 +561,28 @@ function Dashboard() {
             </thead>
             <tbody className="divide-y divide-slate-800">
               <tr className="hover:bg-slate-800">
-                <td className="py-3 text-emerald-400 font-medium">⬇️ Stock In</td>
+                <td className="py-3 text-emerald-400 font-medium">== Stock In</td>
                 <td className="py-3 text-slate-200">Wireless Earbuds</td>
                 <td className="py-3 text-emerald-400 font-semibold">+50</td>
                 <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
                 <td className="py-3 text-xs text-slate-500">1h ago</td>
               </tr>
               <tr className="hover:bg-slate-800">
-                <td className="py-3 text-red-400 font-medium">⬆️ Stock Out</td>
+                <td className="py-3 text-red-400 font-medium">== Stock Out</td>
                 <td className="py-3 text-slate-200">Premium Coffee Beans</td>
                 <td className="py-3 text-red-400 font-semibold">-20</td>
                 <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
                 <td className="py-3 text-xs text-slate-500">3h ago</td>
               </tr>
               <tr className="hover:bg-slate-800">
-                <td className="py-3 text-emerald-400 font-medium">⬇️ Stock In</td>
+                <td className="py-3 text-emerald-400 font-medium">== Stock In</td>
                 <td className="py-3 text-slate-200">Ergonomic Chair</td>
                 <td className="py-3 text-emerald-400 font-semibold">+10</td>
                 <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
                 <td className="py-3 text-xs text-slate-500">5h ago</td>
               </tr>
               <tr className="hover:bg-slate-800">
-                <td className="py-3 text-indigo-400 font-medium">🔄 Transfer</td>
+                <td className="py-3 text-indigo-400 font-medium">== Transfer</td>
                 <td className="py-3 text-slate-200">Printer Ink Cartridge</td>
                 <td className="py-3 text-indigo-400 font-semibold">+5</td>
                 <td className="py-3 text-xs text-slate-500">Warehouse B</td>
@@ -473,12 +594,13 @@ function Dashboard() {
 
       </div>
 
+      {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           onClick={() => setShowAddProduct(true)}
           className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
         >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">➕</div>
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Add Product</p>
             <p className="text-xs text-slate-500">Add new product to inventory</p>
@@ -488,7 +610,7 @@ function Dashboard() {
           onClick={() => setShowCreatePO(true)}
           className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
         >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">🛒</div>
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Create PO</p>
             <p className="text-xs text-slate-500">Create new purchase order</p>
@@ -498,7 +620,7 @@ function Dashboard() {
           onClick={() => navigate("/transactions")}
           className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
         >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">📥</div>
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Stock In</p>
             <p className="text-xs text-slate-500">Receive products to inventory</p>
@@ -508,13 +630,21 @@ function Dashboard() {
           onClick={() => navigate("/reports")}
           className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
         >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">📄</div>
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Reports</p>
             <p className="text-xs text-slate-500">View inventory reports</p>
           </div>
         </div>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3500} 
+        hideProgressBar={false}
+        theme="dark" 
+      />
 
     </main>
   );

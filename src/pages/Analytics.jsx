@@ -6,6 +6,8 @@ import {
 } from "recharts";
 import { useSettings } from "./settings";
 
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
 const INVENTORY_VALUE = {
   "7 Days": [
     { day: "May 12", value: 218000 },
@@ -145,6 +147,8 @@ const INSIGHTS = [
 
 const DONUT_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#3b82f6", "#f43f5e"];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function getCurrencySymbol(currency) {
   if (currency.includes("EUR")) return "€";
   if (currency.includes("GBP")) return "£";
@@ -155,9 +159,13 @@ function formatCurrency(symbol, value) {
   return `${symbol}${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// ─── Shared styles ────────────────────────────────────────────────────────────
+
 const cardClass  = "bg-slate-900 border border-slate-700 rounded-xl p-6";
 const selectClass = "text-xs border border-slate-600 rounded-lg px-2 py-1 outline-none bg-slate-800 text-slate-300";
 const tooltipStyle = { backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#94a3b8" };
+
+// ─── Tab placeholders ─────────────────────────────────────────────────────────
 
 function InventoryAnalysisTab() {
   return (
@@ -192,6 +200,8 @@ function DemandForecastTab() {
   );
 }
 
+// ─── Insight Detail Modal ─────────────────────────────────────────────────────
+
 function InsightModal({ insight, onClose }) {
   return (
     <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
@@ -212,6 +222,8 @@ function InsightModal({ insight, onClose }) {
     </div>
   );
 }
+
+// ─── All Insights Modal ───────────────────────────────────────────────────────
 
 function AllInsightsModal({ onClose }) {
   const [active, setActive] = useState(null);
@@ -252,6 +264,8 @@ function AllInsightsModal({ onClose }) {
   );
 }
 
+// ─── Slow Moving Items Modal ──────────────────────────────────────────────────
+
 function SlowMovingModal({ onClose, symbol }) {
   return (
     <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
@@ -288,6 +302,8 @@ function SlowMovingModal({ onClose, symbol }) {
     </div>
   );
 }
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 function Analytics() {
 
@@ -329,10 +345,12 @@ function Analytics() {
   return (
     <main className="flex-1 bg-slate-800 p-8">
 
+      {/* Modals */}
       {insightModal    && <InsightModal insight={insightModal} onClose={() => setInsightModal(null)} />}
       {showAllInsights && <AllInsightsModal onClose={() => setShowAllInsights(false)} />}
       {showSlowMoving  && <SlowMovingModal  onClose={() => setShowSlowMoving(false)} symbol={symbol} />}
 
+      {/* Top Section */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Analytics & Intelligence</h1>
@@ -346,6 +364,7 @@ function Analytics() {
         </button>
       </div>
 
+      {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-slate-700 mb-6 text-sm font-medium text-slate-500">
         {["Overview", "Inventory Analysis", "Sales Analysis", "Supplier Performance", "Demand Forecast"].map((tab) => (
           <button
@@ -362,13 +381,16 @@ function Analytics() {
         ))}
       </div>
 
+      {/* Non-overview tabs */}
       {activeTab === "Inventory Analysis"   && <InventoryAnalysisTab />}
       {activeTab === "Sales Analysis"       && <SalesAnalysisTab />}
       {activeTab === "Supplier Performance" && <SupplierPerformanceTab />}
       {activeTab === "Demand Forecast"      && <DemandForecastTab />}
 
+      {/* Overview tab */}
       {activeTab === "Overview" && <>
 
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
             <p className="text-xs text-slate-400 mb-1">Total Inventory Value</p>
@@ -397,8 +419,10 @@ function Analytics() {
           </div>
         </div>
 
+        {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
+          {/* Inventory Value Over Time */}
           <div className={`${cardClass} h-64`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Inventory Value Over Time</h2>
@@ -418,6 +442,7 @@ function Analytics() {
             </ResponsiveContainer>
           </div>
 
+          {/* Inventory Turnover Trend */}
           <div className={`${cardClass} h-64`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Inventory Turnover Trend</h2>
@@ -437,6 +462,7 @@ function Analytics() {
             </ResponsiveContainer>
           </div>
 
+          {/* Top Performing Categories */}
           <div className={`${cardClass} h-64`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Top Performing Categories</h2>
@@ -466,8 +492,10 @@ function Analytics() {
 
         </div>
 
+        {/* Charts Row 2 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
+          {/* Stock Status Distribution */}
           <div className={cardClass}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Stock Status Distribution</h2>
@@ -505,6 +533,7 @@ function Analytics() {
             </div>
           </div>
 
+          {/* Inventory Age Analysis */}
           <div className={cardClass}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Inventory Age Analysis</h2>
@@ -527,6 +556,7 @@ function Analytics() {
             </div>
           </div>
 
+          {/* Slow Moving Items */}
           <div className={cardClass}>
             <h2 className="text-sm font-semibold text-slate-200 mb-4">Slow Moving Items (Top 5)</h2>
             <table className="w-full text-sm text-slate-400">
@@ -555,8 +585,10 @@ function Analytics() {
 
         </div>
 
+        {/* Bottom Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
+          {/* Demand Forecast */}
           <div className={cardClass}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-slate-200">Demand Forecast</h2>
@@ -580,6 +612,7 @@ function Analytics() {
             </div>
           </div>
 
+          {/* Insights & Recommendations */}
           <div className={cardClass}>
             <h2 className="text-sm font-semibold text-slate-200 mb-4">💡 Insights & Recommendations</h2>
             <ul className="space-y-4 text-sm text-slate-400">

@@ -10,10 +10,12 @@ import Settings from "./pages/settings"
 import { SettingsProvider } from "./pages/settings"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
+import Products from "./pages/Procducts"
+import Users from "./pages/Users"
 
 function ProtectedRoute({ children }) {
   const user = localStorage.getItem("si_current_user")
-  if (!user) return <Navigate to="/login" replace />
+  // if (!user) return <Navigate to="/login" replace />
   return children
 }
 
@@ -22,11 +24,11 @@ function App() {
     <SettingsProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/signup" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Auth pages */}
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          {/* <Route path="/signup" element={<Signup />} /> */}
 
           {/* Protected pages inside Layout */}
           <Route
@@ -38,6 +40,8 @@ function App() {
             }
           >
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="products" element={<Products />} />
+            <Route path="users" element={<Users />} />
             <Route path="transactions" element={<Transaction />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="alerts" element={<Alerts />} />

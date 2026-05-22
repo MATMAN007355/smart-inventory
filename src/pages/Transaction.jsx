@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useSettings } from "./settings";
 
-// DATA 
+// ── DATA ──────────────────────────────────────────────────────────────────────
 const ALL_TRANSACTIONS = [
   {
     date: "May 18, 2024", time: "10:30 AM", dateObj: new Date("2024-05-18"),
