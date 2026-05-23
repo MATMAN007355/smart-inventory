@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-// Import your custom Axios instance
-import apiClient from "../api/client"; 
+import { useInventory } from "./InventoryContext"; // ← shared context
 
 const lineData7Days = [
   { day: "May 12", value: 180000 },
@@ -26,19 +25,12 @@ const lineData30Days = [
   { day: "May 18", value: 245680 },
 ];
 
-const donutData = [
-  { name: "In Stock", value: 782, color: "#22c55e" },
-  { name: "Low Stock", value: 23, color: "#eab308" },
-  { name: "Out of Stock", value: 15, color: "#ef4444" },
-  { name: "Overstock", value: 23, color: "#6366f1" },
-];
-
-const allLowStockItems = [
-  { product: "Wireless Earbuds", sku: "WE-1001", stock: 3 },
-  { product: "Premium Coffee Beans", sku: "CF-2002", stock: 5 },
-  { product: "Ergonomic Chair", sku: "CH-3003", stock: 2 },
-  { product: "Printer Ink Cartridge", sku: "IC-4004", stock: 4 },
-];
+function formatTimeAgo(index) {
+  if (index === 0) return "Just now";
+  if (index === 1) return "1m ago";
+  if (index < 5) return `${index * 3}m ago`;
+  return `${index}h ago`;
+}
 
 function Dashboard() {
   const [chartRange, setChartRange] = useState("7 Days");
@@ -46,30 +38,40 @@ function Dashboard() {
   const [reorderItem, setReorderItem] = useState(null);
   const [reorderQty, setReorderQty] = useState(10);
   const [reorderSuccess, setReorderSuccess] = useState(false);
-  
+
   // Modals and Loaders
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [isAddingProduct, setIsAddingProduct] = useState(false); // Loader state
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [showCreatePO, setShowCreatePO] = useState(false);
   const [createPOSuccess, setCreatePOSuccess] = useState(false);
 
-  const [newProduct, setNewProduct] = useState({ 
-    product_name: "", 
-    sku: "", 
-    quantity: "", 
+  const [newProduct, setNewProduct] = useState({
+    product_name: "",
+    sku: "",
+    quantity: "",
     category: "",
-    price: "" 
+    price: "",
   });
-  
   const [newPO, setNewPO] = useState({ supplier: "", product: "", qty: "", notes: "" });
   const navigate = useNavigate();
 
+  // ─── Real-time data from shared context ───────────────────────────────────
+  const {
+    totalInventoryValue,
+    totalProducts,
+    lowStockItems,
+    outOfStockItems,
+    donutData,
+    stockMovements,
+    addProduct,
+  } = useInventory();
+
   const lineData = chartRange === "7 Days" ? lineData7Days : lineData30Days;
 
-  const filteredItems = allLowStockItems.filter(
+  const filteredLowStock = lowStockItems.filter(
     (item) =>
-      item.product.toLowerCase().includes(search.toLowerCase()) ||
-      item.sku.toLowerCase().includes(search.toLowerCase())
+      item.product_name?.toLowerCase().includes(search.toLowerCase()) ||
+      item.unique_code?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleReorderConfirm = () => {
@@ -82,30 +84,26 @@ function Dashboard() {
     }, 2000);
   };
 
-  // Modernized Async API handler for adding products
+  // Uses shared context addProduct so Products page stays in sync too
   const handleAddProductConfirm = async (e) => {
     if (e) e.preventDefault();
     setIsAddingProduct(true);
 
     const payload = {
       product_name: newProduct.product_name,
-      sku: newProduct.sku || undefined, // Sends SKU if present, skips if blank
+      sku: newProduct.sku || undefined,
       quantity: Number(newProduct.quantity),
       category: newProduct.category.toLowerCase(),
-      price: Number(newProduct.price)
+      price: Number(newProduct.price),
     };
 
     try {
-      // POST target matching your endpoint configuration
-      await apiClient.post("/products", payload);
-      
+      await addProduct(payload);
       toast.success(`Successfully added "${payload.product_name}" to database!`);
       setShowAddProduct(false);
       setNewProduct({ product_name: "", sku: "", quantity: "", category: "", price: "" });
     } catch (error) {
       console.error("Failed to add product:", error);
-      
-      // Pull API error message if backend returns one, fallback to standard text
       const errorMsg = error.response?.data?.message || "Could not save product. Please try again.";
       toast.error(errorMsg);
     } finally {
@@ -126,6 +124,12 @@ function Dashboard() {
   const inputClass =
     "w-full px-4 py-2 border border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-700 text-slate-100 placeholder-slate-400 disabled:opacity-50";
 
+  // Total stock movements count derived from real movements list
+  const totalMovements = stockMovements.length;
+
+  // ── Donut legend percentages from live data ──────────────────────────────
+  const donutTotal = donutData.reduce((s, d) => s + d.value, 0) || 1;
+
   return (
     <main className="flex-1 bg-slate-800 p-8 relative min-h-screen">
 
@@ -135,9 +139,9 @@ function Dashboard() {
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 w-full max-w-md">
             {reorderSuccess ? (
               <div className="flex flex-col items-center justify-center gap-3 py-6">
-                <span className="text-4xl">==</span>
+                <span className="text-4xl">✅</span>
                 <p className="text-slate-100 font-semibold text-lg">Reorder Placed!</p>
-                <p className="text-slate-400 text-sm">Your order for {reorderItem.product} has been submitted.</p>
+                <p className="text-slate-400 text-sm">Your order for {reorderItem.product_name} has been submitted.</p>
               </div>
             ) : (
               <>
@@ -146,9 +150,9 @@ function Dashboard() {
                   <button onClick={() => setReorderItem(null)} className="text-slate-400 hover:text-slate-200 text-xl">✕</button>
                 </div>
                 <div className="bg-slate-700 p-4 rounded-xl mb-6">
-                  <p className="text-sm font-medium text-slate-100">{reorderItem.product}</p>
-                  <p className="text-xs text-slate-400 mt-1">SKU: {reorderItem.sku}</p>
-                  <p className="text-xs text-red-400 mt-1">Current Stock: {reorderItem.stock}</p>
+                  <p className="text-sm font-medium text-slate-100">{reorderItem.product_name}</p>
+                  <p className="text-xs text-slate-400 mt-1">SKU: {reorderItem.unique_code}</p>
+                  <p className="text-xs text-red-400 mt-1">Current Stock: {reorderItem.quantity}</p>
                 </div>
                 <div className="mb-6">
                   <label className="text-xs text-slate-400 mb-1 block">Reorder Quantity</label>
@@ -174,86 +178,30 @@ function Dashboard() {
       {showAddProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-950/80 backdrop-blur-sm">
           <div className="absolute inset-0" onClick={() => !isAddingProduct && setShowAddProduct(false)} />
-
           <div className="relative w-full max-w-md p-6 overflow-hidden rounded-2xl bg-[#0F172B] border border-slate-800 shadow-2xl z-10">
             <form onSubmit={handleAddProductConfirm}>
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-slate-100">Add Product</h2>
-                <button 
-                  type="button"
-                  disabled={isAddingProduct}
-                  onClick={() => setShowAddProduct(false)} 
-                  className="p-1 text-xl text-slate-400 transition-colors rounded-lg hover:text-slate-200 disabled:opacity-30"
-                >
-                  ✕
-                </button>
+                <button type="button" disabled={isAddingProduct} onClick={() => setShowAddProduct(false)} className="p-1 text-xl text-slate-400 transition-colors rounded-lg hover:text-slate-200 disabled:opacity-30">✕</button>
               </div>
-
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block mb-1 text-xs font-medium text-slate-400">Product Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    disabled={isAddingProduct}
-                    placeholder="e.g. Big Bull Rice" 
-                    value={newProduct.product_name}
-                    onChange={(e) => setNewProduct({ ...newProduct, product_name: e.target.value })} 
-                    className={inputClass} 
-                  />
+                  <input type="text" required disabled={isAddingProduct} placeholder="e.g. Big Bull Rice" value={newProduct.product_name} onChange={(e) => setNewProduct({ ...newProduct, product_name: e.target.value })} className={inputClass} />
                 </div>
-
-                {/* <div>
-                  <label className="block mb-1 text-xs font-medium text-slate-400">SKU (Optional)</label>
-                  <input 
-                    type="text" 
-                    disabled={isAddingProduct}
-                    placeholder="e.g. BBR-20KG" 
-                    value={newProduct.sku}
-                    onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} 
-                    className={inputClass} 
-                  />
-                </div> */}
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block mb-1 text-xs font-medium text-slate-400">Quantity</label>
-                    <input 
-                      type="number" 
-                      required
-                      disabled={isAddingProduct}
-                      min={0} 
-                      placeholder="20" 
-                      value={newProduct.quantity}
-                      onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })} 
-                      className={inputClass} 
-                    />
+                    <input type="number" required disabled={isAddingProduct} min={0} placeholder="20" value={newProduct.quantity} onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })} className={inputClass} />
                   </div>
-
                   <div>
                     <label className="block mb-1 text-xs font-medium text-slate-400">Price</label>
-                    <input 
-                      type="number" 
-                      required
-                      disabled={isAddingProduct}
-                      min={0} 
-                      placeholder="50000" 
-                      value={newProduct.price}
-                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} 
-                      className={inputClass} 
-                    />
+                    <input type="number" required disabled={isAddingProduct} min={0} placeholder="50000" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} className={inputClass} />
                   </div>
                 </div>
-
                 <div>
                   <label className="block mb-1 text-xs font-medium text-slate-400">Category</label>
-                  <select 
-                    required
-                    disabled={isAddingProduct}
-                    value={newProduct.category}
-                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} 
-                    className={inputClass}
-                  >
+                  <select required disabled={isAddingProduct} value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} className={inputClass}>
                     <option value="">Select category</option>
                     <option value="Food">Food / Groceries</option>
                     <option value="Electronics">Electronics</option>
@@ -263,21 +211,9 @@ function Dashboard() {
                   </select>
                 </div>
               </div>
-
               <div className="flex items-center gap-3 pt-2">
-                <button 
-                  type="button"
-                  disabled={isAddingProduct}
-                  onClick={() => setShowAddProduct(false)} 
-                  className="flex-1 px-4 py-2.5 text-sm font-medium border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isAddingProduct}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20 disabled:bg-indigo-800 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
+                <button type="button" disabled={isAddingProduct} onClick={() => setShowAddProduct(false)} className="flex-1 px-4 py-2.5 text-sm font-medium border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={isAddingProduct} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20 disabled:bg-indigo-800 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                   {isAddingProduct ? (
                     <>
                       <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -286,23 +222,21 @@ function Dashboard() {
                       </svg>
                       Saving...
                     </>
-                  ) : (
-                    "Add Product"
-                  )}
+                  ) : "Add Product"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-         
+
       {/* Create PO Modal */}
       {showCreatePO && (
         <div className="fixed inset-0 bg-slate-950 bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-8 w-full max-w-md">
             {createPOSuccess ? (
               <div className="flex flex-col items-center justify-center gap-3 py-6">
-                <span className="text-4xl">==</span>
+                <span className="text-4xl">✅</span>
                 <p className="text-slate-100 font-semibold text-lg">Purchase Order Created!</p>
                 <p className="text-slate-400 text-sm">Your purchase order has been submitted.</p>
               </div>
@@ -315,24 +249,19 @@ function Dashboard() {
                 <div className="space-y-4 mb-6">
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Supplier</label>
-                    <input type="text" placeholder="e.g. Fresh Supplies Co." value={newPO.supplier}
-                      onChange={(e) => setNewPO({ ...newPO, supplier: e.target.value })} className={inputClass} />
+                    <input type="text" placeholder="e.g. Fresh Supplies Co." value={newPO.supplier} onChange={(e) => setNewPO({ ...newPO, supplier: e.target.value })} className={inputClass} />
                   </div>
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Product</label>
-                    <input type="text" placeholder="e.g. Wireless Earbuds" value={newPO.product}
-                      onChange={(e) => setNewPO({ ...newPO, product: e.target.value })} className={inputClass} />
+                    <input type="text" placeholder="e.g. Wireless Earbuds" value={newPO.product} onChange={(e) => setNewPO({ ...newPO, product: e.target.value })} className={inputClass} />
                   </div>
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Quantity</label>
-                    <input type="number" min={1} placeholder="e.g. 100" value={newPO.qty}
-                      onChange={(e) => setNewPO({ ...newPO, qty: e.target.value })} className={inputClass} />
+                    <input type="number" min={1} placeholder="e.g. 100" value={newPO.qty} onChange={(e) => setNewPO({ ...newPO, qty: e.target.value })} className={inputClass} />
                   </div>
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Notes</label>
-                    <textarea placeholder="Any additional notes..." value={newPO.notes}
-                      onChange={(e) => setNewPO({ ...newPO, notes: e.target.value })}
-                      className={`${inputClass} resize-none h-20`} />
+                    <textarea placeholder="Any additional notes..." value={newPO.notes} onChange={(e) => setNewPO({ ...newPO, notes: e.target.value })} className={`${inputClass} resize-none h-20`} />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -369,27 +298,29 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards — all live from context */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Total Inventory Value</p>
-          <p className="text-2xl font-bold text-slate-100">$245,680.00</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 12.5% vs last week</p>
+          <p className="text-2xl font-bold text-slate-100">
+            ${totalInventoryValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-xs text-emerald-400 mt-1">Live from products</p>
         </div>
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Total Products</p>
-          <p className="text-2xl font-bold text-slate-100">1,248</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 8.3% vs last week</p>
+          <p className="text-2xl font-bold text-slate-100">{totalProducts.toLocaleString()}</p>
+          <p className="text-xs text-emerald-400 mt-1">Live from products</p>
         </div>
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Low Stock Items</p>
-          <p className="text-2xl font-bold text-slate-100">23</p>
-          <p className="text-xs text-red-400 mt-1">▲ 4 vs last week</p>
+          <p className="text-2xl font-bold text-slate-100">{lowStockItems.length}</p>
+          <p className="text-xs text-red-400 mt-1">≤ 10 units remaining</p>
         </div>
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Stock Movements</p>
-          <p className="text-2xl font-bold text-slate-100">356</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 15.7% vs last week</p>
+          <p className="text-2xl font-bold text-slate-100">{totalMovements}</p>
+          <p className="text-xs text-emerald-400 mt-1">This session</p>
         </div>
       </div>
 
@@ -425,7 +356,7 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Donut Chart */}
+        {/* Donut Chart — live data */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 h-72">
           <h2 className="text-sm font-semibold text-slate-200 mb-2">Stock Status Overview</h2>
           <div className="flex items-center gap-2">
@@ -437,15 +368,17 @@ function Dashboard() {
               </Pie>
             </PieChart>
             <ul className="space-y-2 text-xs text-slate-400">
-              <li className="flex justify-between gap-4"><span>== In Stock</span><span>782 (62.7%)</span></li>
-              <li className="flex justify-between gap-4"><span>== Low Stock</span><span>23 (18.4%)</span></li>
-              <li className="flex justify-between gap-4"><span>== Out of Stock</span><span>15 (12.0%)</span></li>
-              <li className="flex justify-between gap-4"><span>== Overstock</span><span>23 (6.9%)</span></li>
+              {donutData.map((d) => (
+                <li key={d.name} className="flex justify-between gap-4">
+                  <span style={{ color: d.color }}>■ {d.name}</span>
+                  <span>{d.value} ({donutTotal > 0 ? ((d.value / donutTotal) * 100).toFixed(1) : 0}%)</span>
+                </li>
+              ))}
             </ul>
           </div>
           <div className="flex justify-between mt-2 text-sm font-semibold text-slate-200 border-t border-slate-700 pt-3">
             <span>Total</span>
-            <span>1,248</span>
+            <span>{donutTotal}</span>
           </div>
         </div>
 
@@ -453,25 +386,27 @@ function Dashboard() {
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700 h-72">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Recent Alerts</h2>
-            <button onClick={() => navigate("/alerts")} className="text-xs text-indigo-400 hover:underline">
-              View all
-            </button>
+            <button onClick={() => navigate("/alerts")} className="text-xs text-indigo-400 hover:underline">View all</button>
           </div>
           <ul className="space-y-4 text-sm text-slate-400">
-            <li className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium text-slate-200">15 items out of stock</p>
-                <p className="text-xs text-slate-500">View and restock now</p>
-              </div>
-              <span className="text-xs text-slate-500 whitespace-nowrap">10m ago</span>
-            </li>
-            <li className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-medium text-slate-200">23 items low in stock</p>
-                <p className="text-xs text-slate-500">Review and reorder</p>
-              </div>
-              <span className="text-xs text-slate-500 whitespace-nowrap">1h ago</span>
-            </li>
+            {lowStockItems.length > 0 && (
+              <li className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-200">{lowStockItems.length} item{lowStockItems.length !== 1 ? "s" : ""} low in stock</p>
+                  <p className="text-xs text-slate-500">Review and reorder</p>
+                </div>
+                <span className="text-xs text-slate-500 whitespace-nowrap">Live</span>
+              </li>
+            )}
+            {outOfStockItems.length > 0 && (
+              <li className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-200">{outOfStockItems.length} item{outOfStockItems.length !== 1 ? "s" : ""} out of stock</p>
+                  <p className="text-xs text-slate-500">View and restock now</p>
+                </div>
+                <span className="text-xs text-slate-500 whitespace-nowrap">Live</span>
+              </li>
+            )}
             <li className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-200">PO #1052 is delayed</p>
@@ -494,13 +429,11 @@ function Dashboard() {
       {/* Bottom Tables Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-        {/* Top Low Stock Items */}
+        {/* Top Low Stock Items — live */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Top Low Stock Items</h2>
-            <button onClick={() => navigate("/transactions")} className="text-xs text-indigo-400 hover:underline">
-              View all
-            </button>
+            <button onClick={() => navigate("/transactions")} className="text-xs text-indigo-400 hover:underline">View all</button>
           </div>
           <table className="w-full text-sm text-slate-400">
             <thead className="text-xs text-slate-500 border-b border-slate-700">
@@ -513,14 +446,16 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {filteredItems.length > 0 ? (
-                filteredItems.map((item) => (
-                  <tr key={item.sku} className="hover:bg-slate-800">
-                    <td className="py-3 text-slate-200">{item.product}</td>
-                    <td className="py-3 text-xs text-slate-500">{item.sku}</td>
-                    <td className="py-3 text-red-400 font-semibold">{item.stock}</td>
+              {filteredLowStock.length > 0 ? (
+                filteredLowStock.slice(0, 5).map((item) => (
+                  <tr key={item.unique_code} className="hover:bg-slate-800">
+                    <td className="py-3 text-slate-200">{item.product_name}</td>
+                    <td className="py-3 text-xs text-slate-500">{item.unique_code || "N/A"}</td>
+                    <td className="py-3 text-red-400 font-semibold">{item.quantity}</td>
                     <td className="py-3">
-                      <span className="bg-amber-950 text-amber-400 text-xs px-2 py-1 rounded-full">Low Stock</span>
+                      <span className="bg-amber-950 text-amber-400 text-xs px-2 py-1 rounded-full">
+                        {item.quantity === 0 ? "Out of Stock" : "Low Stock"}
+                      </span>
                     </td>
                     <td className="py-3">
                       <button
@@ -534,20 +469,20 @@ function Dashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-500 text-sm">No results found</td>
+                  <td colSpan={5} className="py-6 text-center text-slate-500 text-sm">
+                    {search ? "No results found" : "All items are well stocked ✓"}
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Recent Stock Movements */}
+        {/* Recent Stock Movements — live from context */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-200">Recent Stock Movements</h2>
-            <button onClick={() => navigate("/transactions")} className="text-xs text-indigo-400 hover:underline">
-              View all
-            </button>
+            <button onClick={() => navigate("/transactions")} className="text-xs text-indigo-400 hover:underline">View all</button>
           </div>
           <table className="w-full text-sm text-slate-400">
             <thead className="text-xs text-slate-500 border-b border-slate-700">
@@ -560,34 +495,28 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              <tr className="hover:bg-slate-800">
-                <td className="py-3 text-emerald-400 font-medium">== Stock In</td>
-                <td className="py-3 text-slate-200">Wireless Earbuds</td>
-                <td className="py-3 text-emerald-400 font-semibold">+50</td>
-                <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
-                <td className="py-3 text-xs text-slate-500">1h ago</td>
-              </tr>
-              <tr className="hover:bg-slate-800">
-                <td className="py-3 text-red-400 font-medium">== Stock Out</td>
-                <td className="py-3 text-slate-200">Premium Coffee Beans</td>
-                <td className="py-3 text-red-400 font-semibold">-20</td>
-                <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
-                <td className="py-3 text-xs text-slate-500">3h ago</td>
-              </tr>
-              <tr className="hover:bg-slate-800">
-                <td className="py-3 text-emerald-400 font-medium">== Stock In</td>
-                <td className="py-3 text-slate-200">Ergonomic Chair</td>
-                <td className="py-3 text-emerald-400 font-semibold">+10</td>
-                <td className="py-3 text-xs text-slate-500">Main Warehouse</td>
-                <td className="py-3 text-xs text-slate-500">5h ago</td>
-              </tr>
-              <tr className="hover:bg-slate-800">
-                <td className="py-3 text-indigo-400 font-medium">== Transfer</td>
-                <td className="py-3 text-slate-200">Printer Ink Cartridge</td>
-                <td className="py-3 text-indigo-400 font-semibold">+5</td>
-                <td className="py-3 text-xs text-slate-500">Warehouse B</td>
-                <td className="py-3 text-xs text-slate-500">1d ago</td>
-              </tr>
+              {stockMovements.length > 0 ? (
+                stockMovements.slice(0, 5).map((m, i) => {
+                  const isIn = m.type === "Stock In";
+                  const isTransfer = m.type === "Transfer";
+                  const color = isTransfer ? "text-indigo-400" : isIn ? "text-emerald-400" : "text-red-400";
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-800">
+                      <td className={`py-3 font-medium ${color}`}>● {m.type}</td>
+                      <td className="py-3 text-slate-200">{m.product}</td>
+                      <td className={`py-3 font-semibold ${color}`}>
+                        {isIn || isTransfer ? "+" : ""}{m.qty}
+                      </td>
+                      <td className="py-3 text-xs text-slate-500">{m.location}</td>
+                      <td className="py-3 text-xs text-slate-500">{formatTimeAgo(i)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-slate-500 text-sm">No movements recorded yet</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -596,41 +525,29 @@ function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div
-          onClick={() => setShowAddProduct(true)}
-          className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
-        >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
+        <div onClick={() => setShowAddProduct(true)} className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800">
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">➕</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Add Product</p>
             <p className="text-xs text-slate-500">Add new product to inventory</p>
           </div>
         </div>
-        <div
-          onClick={() => setShowCreatePO(true)}
-          className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
-        >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
+        <div onClick={() => setShowCreatePO(true)} className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800">
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">📋</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Create PO</p>
             <p className="text-xs text-slate-500">Create new purchase order</p>
           </div>
         </div>
-        <div
-          onClick={() => navigate("/transactions")}
-          className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
-        >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
+        <div onClick={() => navigate("/transactions")} className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800">
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">📦</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Stock In</p>
             <p className="text-xs text-slate-500">Receive products to inventory</p>
           </div>
         </div>
-        <div
-          onClick={() => navigate("/reports")}
-          className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800"
-        >
-          <div className="bg-indigo-950 p-3 rounded-xl text-xl">==</div>
+        <div onClick={() => navigate("/reports")} className="bg-slate-900 p-5 rounded-xl border border-slate-700 flex items-center gap-4 cursor-pointer hover:bg-slate-800">
+          <div className="bg-indigo-950 p-3 rounded-xl text-xl">📊</div>
           <div>
             <p className="text-sm font-semibold text-slate-200">Reports</p>
             <p className="text-xs text-slate-500">View inventory reports</p>
@@ -638,14 +555,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Toast Container */}
-      <ToastContainer 
-        position="top-right" 
-        autoClose={3500} 
-        hideProgressBar={false}
-        theme="dark" 
-      />
-
+      <ToastContainer position="top-right" autoClose={3500} hideProgressBar={false} theme="dark" />
     </main>
   );
 }

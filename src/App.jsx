@@ -12,6 +12,8 @@ import Login from "./pages/Login"
 import Signup from "./pages/Signup"
 import Products from "./pages/Procducts"
 import Users from "./pages/Users"
+import Store from "./pages/Store"
+import { InventoryProvider } from "./pages/InventoryContext"
 
 function ProtectedRoute({ children }) {
   const user = localStorage.getItem("si_current_user")
@@ -22,37 +24,40 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <SettingsProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+      <InventoryProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* Auth pages */}
-          <Route path="/login" element={<Login />} />
-          {/* <Route path="/signup" element={<Signup />} /> */}
+            {/* Auth pages */}
+            <Route path="/login" element={<Login />} />
+            {/* <Route path="/signup" element={<Signup />} /> */}
 
-          {/* Protected pages inside Layout */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="products" element={<Products />} />
-            <Route path="users" element={<Users />} />
-            <Route path="transactions" element={<Transaction />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
+            {/* Protected pages inside Layout */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="products" element={<Products />} />
+              <Route path="users" element={<Users />} />
+              <Route path="transactions" element={<Transaction />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="alerts" element={<Alerts />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+              <Route path="/store" element={<Store />} />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Catch-all */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </InventoryProvider>
     </SettingsProvider>
   )
 }

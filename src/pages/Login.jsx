@@ -555,7 +555,7 @@ function Login() {
         if (userRole === "admin") {
           navigate("/dashboard");
         } else {
-          navigate("/staff-portal");
+          navigate("/store");
         }
       } else {
         toast.error(
