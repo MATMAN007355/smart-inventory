@@ -1,51 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSettings } from "./settings";
-
-// ── DATA ──────────────────────────────────────────────────────────────────────
-const ALL_TRANSACTIONS = [
-  {
-    date: "May 18, 2024", time: "10:30 AM", dateObj: new Date("2024-05-18"),
-    type: "Stock In", product: "Wireless Earbuds", sku: "WE-1001",
-    reference: "PO #1051", location: "Main Warehouse", locationTo: null,
-    quantity: "+50", unitCost: 25.00, totalValue: 1250.00, totalNeg: false,
-    performer: "John Admin", email: "admin@company.com",
-  },
-  {
-    date: "May 18, 2024", time: "09:15 AM", dateObj: new Date("2024-05-18"),
-    type: "Stock Out", product: "Premium Coffee Beans", sku: "CF-2002",
-    reference: "SO #2056", location: "Main Warehouse", locationTo: null,
-    quantity: "-20", unitCost: 15.00, totalValue: -300.00, totalNeg: true,
-    performer: "John Admin", email: "admin@company.com",
-  },
-  {
-    date: "May 17, 2024", time: "04:45 PM", dateObj: new Date("2024-05-17"),
-    type: "Transfer", product: "Printer Ink Cartridge", sku: "IC-4004",
-    reference: "TR #3003", location: "Main Warehouse", locationTo: "Warehouse B",
-    quantity: "-5", unitCost: 45.00, totalValue: -225.00, totalNeg: true,
-    performer: "John Admin", email: "admin@company.com",
-  },
-  {
-    date: "May 17, 2024", time: "02:20 PM", dateObj: new Date("2024-05-17"),
-    type: "Stock In", product: "Ergonomic Chair", sku: "CH-3003",
-    reference: "PO #1050", location: "Main Warehouse", locationTo: null,
-    quantity: "+10", unitCost: 85.00, totalValue: 850.00, totalNeg: false,
-    performer: "Sarah Manager", email: "sarah@company.com",
-  },
-  {
-    date: "May 16, 2024", time: "11:00 AM", dateObj: new Date("2024-05-16"),
-    type: "Stock Out", product: "Stainless Steel Bottle", sku: "SB-5005",
-    reference: "SO #2055", location: "Main Warehouse", locationTo: null,
-    quantity: "-15", unitCost: 12.00, totalValue: -180.00, totalNeg: true,
-    performer: "John Admin", email: "admin@company.com",
-  },
-  {
-    date: "May 15, 2024", time: "03:30 PM", dateObj: new Date("2024-05-15"),
-    type: "Stock In", product: "Premium Coffee Beans", sku: "CF-2002",
-    reference: "PO #1049", location: "Main Warehouse", locationTo: null,
-    quantity: "+30", unitCost: 15.00, totalValue: 450.00, totalNeg: false,
-    performer: "Mike Staff", email: "mike@company.com",
-  },
-];
+import apiClient from "../api/client";
 
 const TYPE_ICON = {
   "Stock In":  { icon: "⬇️", color: "text-emerald-400" },
@@ -58,12 +13,11 @@ const COLUMNS = [
   { key: "dateObj",     label: "Date & Time"  },
   { key: "type",        label: "Type"         },
   { key: "product",     label: "Product"      },
-  { key: "reference",   label: "Reference"    },
-  { key: "location",    label: "Location"     },
-  { key: "quantity",    label: "Quantity"     },
+  { key: "location",    label: "Category"     },
+  { key: "quantity",    label: "Qty Sold"     },
   { key: "unitCost",    label: "Unit Cost"    },
-  { key: "totalValue",  label: "Total Value"  },
-  { key: "performer",   label: "Performed By" },
+  { key: "totalValue",  label: "Total Amount" },
+  { key: "performer",   label: "Sold By"      },
 ];
 
 function getSortValue(t, key) {
@@ -78,12 +32,12 @@ function getSortValue(t, key) {
 function getCurrencySymbol(currency) {
   if (currency.includes("EUR")) return "€";
   if (currency.includes("GBP")) return "£";
-  return "$";
+  return "₦";
 }
 
 function formatCurrency(symbol, value) {
   const abs = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return value < 0 ? `-${symbol}${abs}` : `${symbol}${abs}`;
+  return `${symbol}${abs}`;
 }
 
 function formatDate(dateObj, format) {
@@ -95,6 +49,28 @@ function formatDate(dateObj, format) {
   if (format === "DD/MM/YYYY") return `${d}/${m}/${y}`;
   if (format === "YYYY-MM-DD") return `${y}-${m}-${d}`;
   return `${mon} ${day}, ${y}`;
+}
+
+// ── Map API sale record to table row shape ────────────────────────────────────
+function mapSaleToRow(sale) {
+  const dateObj = new Date(sale.createdAt);
+  return {
+    dateObj,
+    date: dateObj.toLocaleDateString(),
+    time: dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    type: "Stock Out",
+    product: sale.product_name,
+    sku: sale.unique_code,
+    reference: sale._id,
+    location: sale.product?.category || "—",
+    locationTo: null,
+    quantity: String(Math.abs(parseFloat(sale.quantity_sold) || 0)),
+    unitCost: sale.price,
+    totalValue: Math.abs(sale.total_amount),
+    totalNeg: true,
+    performer: `${sale.sold_by?.first_name ?? ""} ${sale.sold_by?.last_name ?? ""}`.trim(),
+    email: sale.sold_by?.email || "—",
+  };
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────────
@@ -138,28 +114,25 @@ function TransactionModal({ transaction: t, onClose, symbol, dateFormat }) {
             <p className="text-xs text-slate-500">{t.sku}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 mb-1">Location</p>
+            <p className="text-xs text-slate-500 mb-1">Category</p>
             <p className="text-slate-200 font-medium">{t.location}</p>
-            {t.locationTo && <p className="text-xs text-slate-500">→ {t.locationTo}</p>}
           </div>
           <div>
-            <p className="text-xs text-slate-500 mb-1">Quantity</p>
-            <p className={`font-semibold ${t.quantity.startsWith("+") ? "text-emerald-400" : "text-red-400"}`}>
-              {t.quantity}
-            </p>
+            <p className="text-xs text-slate-500 mb-1">Qty Sold</p>
+            <p className="font-semibold text-emerald-400">{t.quantity}</p>
           </div>
           <div>
             <p className="text-xs text-slate-500 mb-1">Unit Cost</p>
             <p className="text-slate-200 font-medium">{formatCurrency(symbol, t.unitCost)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 mb-1">Total Value</p>
-            <p className={`font-semibold ${t.totalNeg ? "text-red-400" : "text-emerald-400"}`}>
+            <p className="text-xs text-slate-500 mb-1">Total Amount</p>
+            <p className="font-semibold text-emerald-400">
               {formatCurrency(symbol, t.totalValue)}
             </p>
           </div>
           <div className="col-span-2">
-            <p className="text-xs text-slate-500 mb-1">Performed By</p>
+            <p className="text-xs text-slate-500 mb-1">Sold By</p>
             <p className="text-slate-200 font-medium">{t.performer}</p>
             <p className="text-xs text-slate-500">{t.email}</p>
           </div>
@@ -182,14 +155,26 @@ function Transaction() {
   const symbol      = getCurrencySymbol(currency);
   const rowsPerPage = parseInt(itemsPerPage) || 6;
 
+  const [salesData,      setSalesData]      = useState([]);
   const [typeFilter,     setTypeFilter]     = useState("All Types");
   const [productFilter,  setProductFilter]  = useState("All Products");
-  const [locationFilter, setLocationFilter] = useState("All Locations");
-  const [dateFilter,     setDateFilter]     = useState("May 12 – May 18, 2024");
+  const [locationFilter, setLocationFilter] = useState("All Categories");
+  const [dateFilter,     setDateFilter]     = useState("All");
   const [currentPage,    setCurrentPage]    = useState(1);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [sortKey, setSortKey] = useState("dateObj");
   const [sortDir, setSortDir] = useState("desc");
+
+  // ── API call ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    apiClient.get("/products/sales/all")
+      .then((res) => {
+        console.log("Sales data:", res.data);
+        const rows = (res.data?.data ?? res.data ?? []).map(mapSaleToRow);
+        setSalesData(rows);
+      })
+      .catch((err) => console.error("Failed to fetch sales:", err));
+  }, []);
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -204,14 +189,13 @@ function Transaction() {
   const updateFilter = (setter) => (e) => { setter(e.target.value); setCurrentPage(1); };
 
   const handleExport = () => {
-    const header = ["Date", "Time", "Type", "Product", "SKU", "Reference", "Location", "Quantity", "Unit Cost", "Total Value", "Performed By"];
+    const header = ["Date", "Time", "Type", "Product", "SKU", "Category", "Qty Sold", "Unit Cost", "Total Amount", "Sold By"];
     const rows = filtered.map((t) => [
       formatDate(t.dateObj, dateFormat),
       t.time,
       t.type,
       `"${t.product}"`,
       t.sku,
-      t.reference,
       t.location,
       t.quantity,
       formatCurrency(symbol, t.unitCost),
@@ -226,15 +210,23 @@ function Transaction() {
     URL.revokeObjectURL(url);
   };
 
+  // Derive unique product names and categories from live data for filter dropdowns
+  const uniqueProducts   = [...new Set(salesData.map((t) => t.product))];
+  const uniqueCategories = [...new Set(salesData.map((t) => t.location))];
+
   const filtered = useMemo(() => {
-    const result = ALL_TRANSACTIONS.filter((t) => {
+    const result = salesData.filter((t) => {
       if (typeFilter !== "All Types" && t.type !== typeFilter) return false;
       if (productFilter !== "All Products" && t.product !== productFilter) return false;
-      if (locationFilter !== "All Locations" &&
-          t.location !== locationFilter && t.locationTo !== locationFilter) return false;
+      if (locationFilter !== "All Categories" && t.location !== locationFilter) return false;
       if (dateFilter === "Last 30 Days") {
-        const cutoff = new Date("2024-05-18");
+        const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - 30);
+        if (t.dateObj < cutoff) return false;
+      }
+      if (dateFilter === "Last 7 Days") {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 7);
         if (t.dateObj < cutoff) return false;
       }
       return true;
@@ -249,7 +241,7 @@ function Transaction() {
     });
 
     return result;
-  }, [typeFilter, productFilter, locationFilter, dateFilter, sortKey, sortDir]);
+  }, [salesData, typeFilter, productFilter, locationFilter, dateFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const safePage   = Math.min(currentPage, totalPages);
@@ -260,7 +252,7 @@ function Transaction() {
   const selectClass = "text-sm border border-slate-600 rounded-xl px-3 py-2 bg-slate-900 text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500";
 
   return (
-    <main className="flex-1 bg-slate-800 p-8">
+    <main className="flex-1 min-h-screen bg-slate-800 p-8">
 
       {/* Modal */}
       <TransactionModal
@@ -281,8 +273,9 @@ function Transaction() {
           value={dateFilter}
           onChange={updateFilter(setDateFilter)}
         >
-          <option>May 12 – May 18, 2024</option>
-          <option>Last 30 Days</option>
+          <option value="All">All Time</option>
+          <option value="Last 7 Days">Last 7 Days</option>
+          <option value="Last 30 Days">Last 30 Days</option>
         </select>
       </div>
 
@@ -294,9 +287,7 @@ function Transaction() {
             <label className="text-xs text-slate-400">Transaction Type</label>
             <select className={selectClass} value={typeFilter} onChange={updateFilter(setTypeFilter)}>
               <option>All Types</option>
-              <option>Stock In</option>
               <option>Stock Out</option>
-              <option>Transfer</option>
             </select>
           </div>
 
@@ -304,28 +295,24 @@ function Transaction() {
             <label className="text-xs text-slate-400">Product</label>
             <select className={selectClass} value={productFilter} onChange={updateFilter(setProductFilter)}>
               <option>All Products</option>
-              <option>Wireless Earbuds</option>
-              <option>Premium Coffee Beans</option>
-              <option>Ergonomic Chair</option>
-              <option>Printer Ink Cartridge</option>
-              <option>Stainless Steel Bottle</option>
+              {uniqueProducts.map((p) => <option key={p}>{p}</option>)}
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400">Location</label>
+            <label className="text-xs text-slate-400">Category</label>
             <select className={selectClass} value={locationFilter} onChange={updateFilter(setLocationFilter)}>
-              <option>All Locations</option>
-              <option>Main Warehouse</option>
-              <option>Warehouse B</option>
+              <option>All Categories</option>
+              {uniqueCategories.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-xs text-slate-400">Date Range</label>
             <select className={selectClass} value={dateFilter} onChange={updateFilter(setDateFilter)}>
-              <option>May 12 – May 18, 2024</option>
-              <option>Last 30 Days</option>
+              <option value="All">All Time</option>
+              <option value="Last 7 Days">Last 7 Days</option>
+              <option value="Last 30 Days">Last 30 Days</option>
             </select>
           </div>
 
@@ -334,8 +321,8 @@ function Transaction() {
               onClick={() => {
                 setTypeFilter("All Types");
                 setProductFilter("All Products");
-                setLocationFilter("All Locations");
-                setDateFilter("May 12 – May 18, 2024");
+                setLocationFilter("All Categories");
+                setDateFilter("All");
                 setCurrentPage(1);
               }}
               className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-xl bg-slate-800 text-sm text-slate-300 hover:bg-slate-700"
@@ -379,9 +366,15 @@ function Transaction() {
 
           <tbody className="divide-y divide-slate-800">
 
-            {filtered.length === 0 ? (
+            {salesData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-10 text-center text-slate-500">
+                <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
+                  Loading transactions...
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-6 py-10 text-center text-slate-500">
                   No transactions match the selected filters.
                 </td>
               </tr>
@@ -402,20 +395,13 @@ function Transaction() {
                       <p className="text-xs text-slate-500">{t.sku}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => setSelectedTransaction(t)}
-                        className="text-indigo-400 hover:underline"
-                      >{t.reference}</button>
+                      <p className="text-slate-200 capitalize">{t.location}</p>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="text-slate-200">{t.location}</p>
-                      {t.locationTo && <p className="text-xs text-slate-500">→ {t.locationTo}</p>}
-                    </td>
-                    <td className={`px-6 py-4 font-semibold ${t.quantity.startsWith("+") ? "text-emerald-400" : "text-red-400"}`}>
+                    <td className="px-6 py-4 font-semibold text-emerald-400">
                       {t.quantity}
                     </td>
                     <td className="px-6 py-4 text-slate-200">{formatCurrency(symbol, t.unitCost)}</td>
-                    <td className={`px-6 py-4 font-semibold ${t.totalNeg ? "text-red-400" : "text-emerald-400"}`}>
+                    <td className="px-6 py-4 font-semibold text-emerald-400">
                       {formatCurrency(symbol, t.totalValue)}
                     </td>
                     <td className="px-6 py-4">

@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useInventory } from "./InventoryContext"; // ← shared context
+import { useSalesData } from "./useSalesData";     // ← new: live sales feed
 
 const lineData7Days = [
   { day: "May 12", value: 180000 },
@@ -19,8 +20,8 @@ const lineData30Days = [
   { day: "Apr 18", value: 150000 },
   { day: "Apr 23", value: 162000 },
   { day: "Apr 28", value: 158000 },
-  { day: "May 3", value: 175000 },
-  { day: "May 8", value: 190000 },
+  { day: "May 3",  value: 175000 },
+  { day: "May 8",  value: 190000 },
   { day: "May 13", value: 210000 },
   { day: "May 18", value: 245680 },
 ];
@@ -30,6 +31,11 @@ function formatTimeAgo(index) {
   if (index === 1) return "1m ago";
   if (index < 5) return `${index * 3}m ago`;
   return `${index}h ago`;
+}
+
+// ── tiny currency helper (mirrors Transaction.jsx) ────────────────────────────
+function fmtCurrency(value) {
+  return "₦" + Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function Dashboard() {
@@ -65,6 +71,9 @@ function Dashboard() {
     stockMovements,
     addProduct,
   } = useInventory();
+
+  // ─── Live sales data (mirrors Transaction.jsx) ────────────────────────────
+  const { salesData, loading: salesLoading } = useSalesData();
 
   const lineData = chartRange === "7 Days" ? lineData7Days : lineData30Days;
 
@@ -478,40 +487,45 @@ function Dashboard() {
           </table>
         </div>
 
-        {/* Recent Stock Movements — live from context */}
+        {/* ── Recent Stock Movements — live from Transaction.jsx API ── */}
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-200">Recent Stock Movements</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-200">Recent Stock Movements</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Live from sales transactions</p>
+            </div>
             <button onClick={() => navigate("/transactions")} className="text-xs text-indigo-400 hover:underline">View all</button>
           </div>
           <table className="w-full text-sm text-slate-400">
             <thead className="text-xs text-slate-500 border-b border-slate-700">
               <tr>
-                <th className="text-left pb-2">Type</th>
                 <th className="text-left pb-2">Product</th>
-                <th className="text-left pb-2">Qty</th>
-                <th className="text-left pb-2">Location</th>
+                <th className="text-left pb-2">Category</th>
+                <th className="text-left pb-2">Qty Sold</th>
+                <th className="text-left pb-2">Total</th>
                 <th className="text-left pb-2">Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {stockMovements.length > 0 ? (
-                stockMovements.slice(0, 5).map((m, i) => {
-                  const isIn = m.type === "Stock In";
-                  const isTransfer = m.type === "Transfer";
-                  const color = isTransfer ? "text-indigo-400" : isIn ? "text-emerald-400" : "text-red-400";
-                  return (
-                    <tr key={m.id} className="hover:bg-slate-800">
-                      <td className={`py-3 font-medium ${color}`}>● {m.type}</td>
-                      <td className="py-3 text-slate-200">{m.product}</td>
-                      <td className={`py-3 font-semibold ${color}`}>
-                        {isIn || isTransfer ? "+" : ""}{m.qty}
-                      </td>
-                      <td className="py-3 text-xs text-slate-500">{m.location}</td>
-                      <td className="py-3 text-xs text-slate-500">{formatTimeAgo(i)}</td>
-                    </tr>
-                  );
-                })
+              {salesLoading ? (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-slate-500 text-sm">
+                    Loading transactions...
+                  </td>
+                </tr>
+              ) : salesData.length > 0 ? (
+                salesData.slice(0, 5).map((t, i) => (
+                  <tr key={t.reference || i} className="hover:bg-slate-800">
+                    <td className="py-3">
+                      <p className="text-slate-200 truncate ">{t.product}</p>
+                      <p className="text-xs text-slate-500">{t.sku}</p>
+                    </td>
+                    <td className="py-3 text-xs text-slate-400 capitalize">{t.location}</td>
+                    <td className="py-3 font-semibold text-emerald-400">{t.quantity}</td>
+                    <td className="py-3 font-semibold text-emerald-400">{fmtCurrency(t.totalValue)}</td>
+                    <td className="py-3 text-xs text-slate-500 whitespace-nowrap">{t.time}</td>
+                  </tr>
+                ))
               ) : (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-slate-500 text-sm">No movements recorded yet</td>
