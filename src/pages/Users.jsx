@@ -97,44 +97,46 @@ const Users = () => {
   // ==========================================
   // 2. TOGGLE USER SUSPENSION OPERATION
   // ==========================================
-  const handleToggleSuspension = async (
-    userId,
-    userRole,
-    currentSuspensionState,
-  ) => {
-    if (userRole === "admin") {
-      alert("Action Denied: Cannot suspend admin accounts.");
-      return;
-    }
+    const handleToggleSuspension = async (
+      userId,
+      userRole,
+      currentSuspensionState,
+    ) => {
+      if (userRole === "admin") {
+        alert("Action Denied: Cannot suspend admin accounts.");
+        return;
+      }
 
-    const actionText = currentSuspensionState ? "UNSUSPEND" : "SUSPEND";
-    if (
-      window.confirm(
-        `Are you sure you want to ${actionText} this user profile session?`,
-      )
-    ) {
-      try {
-        const response = await apiClient.put(
-          `/admin/suspend/${userId}/toggle-suspend`,
-        );
+      const actionText = currentSuspensionState ? "UNSUSPEND" : "SUSPEND";
+      if (
+        window.confirm(
+          `Are you sure you want to ${actionText} this user profile session?`,
+        )
+      ) {
+        try {
+          const response = await apiClient.patch(
+            `/admin/suspend/${userId}`,
+          );
 
-        if (response.data && response.data.success) {
-          setUsers(
-            users.map((u) =>
-              u._id === userId
-                ? { ...u, is_suspended: response.data.is_suspended }
-                : u,
-            ),
+          console.log(response.data);
+
+          if (response.data && response.data.success) {
+            setUsers(
+              users.map((u) =>
+                u._id === userId
+                  ? { ...u, is_suspended: response.data.is_suspended }
+                  : u,
+              ),
+            );
+          }
+        } catch (err) {
+          alert(
+            err.response?.data?.message ||
+              "Error executing modification operation payload updates.",
           );
         }
-      } catch (err) {
-        alert(
-          err.response?.data?.message ||
-            "Error executing modification operation payload updates.",
-        );
       }
-    }
-  };
+    };
 
   // Pagination processing loops
   const indexOfLastItem = currentPage * itemsPerPage;

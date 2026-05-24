@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useInventory } from './InventoryContext';
+import { useInventory } from "./InventoryContext";
 import apiClient from "../api/client";
 
-const formatNaira = (amount) =>
-  "₦" + Number(amount).toLocaleString("en-NG");
+const formatNaira = (amount) => "₦" + Number(amount).toLocaleString("en-NG");
 
 function useClockTick() {
   const [time, setTime] = useState(new Date());
@@ -11,7 +10,11 @@ function useClockTick() {
     const id = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  return time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return time.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 export default function Store() {
@@ -36,9 +39,10 @@ export default function Store() {
     return () => clearTimeout(t);
   }, [stockWarning]);
 
-  const filtered = products.filter((p) =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
+  const filtered = products.filter(
+    (p) =>
+      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.category && p.category.toLowerCase().includes(search.toLowerCase())),
   );
 
   const addToCart = (product) => {
@@ -49,7 +53,7 @@ export default function Store() {
       const existing = prev.find((i) => i._id === product._id);
       if (existing) {
         return prev.map((i) =>
-          i._id === product._id ? { ...i, qty: i.qty + 1 } : i
+          i._id === product._id ? { ...i, qty: i.qty + 1 } : i,
         );
       }
       return [...prev, { ...product, qty: 1 }];
@@ -61,11 +65,13 @@ export default function Store() {
 
   const changeQty = (id, delta) => {
     setCart((prev) =>
-      prev.map((i) => {
-        if (i._id !== id) return i;
-        const newQty = i.qty + delta;
-        return { ...i, qty: newQty };
-      }).filter((i) => i.qty > 0)
+      prev
+        .map((i) => {
+          if (i._id !== id) return i;
+          const newQty = i.qty + delta;
+          return { ...i, qty: newQty };
+        })
+        .filter((i) => i.qty > 0),
     );
   };
 
@@ -79,7 +85,8 @@ export default function Store() {
     const digits = value.replace(/\D/g, "");
     if (!value.trim()) return "Phone number is required.";
     if (digits.length < 10) return "Phone number must be at least 10 digits.";
-    if (!/^\+?[\d\s\-().]{10,}$/.test(value)) return "Enter a valid phone number.";
+    if (!/^\+?[\d\s\-().]{10,}$/.test(value))
+      return "Enter a valid phone number.";
     return "";
   };
 
@@ -92,7 +99,10 @@ export default function Store() {
     if (cart.length === 0) return alert("Cart is empty.");
     if (!customerName.trim()) return alert("Please enter customer name.");
     const err = validatePhone(phone);
-    if (err) { setPhoneError(err); return; }
+    if (err) {
+      setPhoneError(err);
+      return;
+    }
     setPhoneError("");
     setSellError(null);
     setPaymentModal(true);
@@ -100,42 +110,73 @@ export default function Store() {
 
   const confirmPayment = async () => {
     setSellError(null);
+
     try {
-      await Promise.all(
-        cart.map((item) =>
-          apiClient.post(`/products/${item.unique_code}/sell`, { quantity_sold: item.qty })
-        )
-      );
+      if (cart.length === 0) {
+        setSellError("Cart is empty");
+        return;
+      }
+
+      // ✅ Get token directly
+      const token = sessionStorage.getItem("token");
+
+      console.log("Token for sale request:", token);
+
+      if (!token) {
+        setSellError("Session expired. Please login again.");
+        return;
+      }
+
+      const results = [];
+
+      for (const item of cart) {
+        const res = await apiClient.post(`/products/${item.unique_code}/sell`, {
+          quantity_sold: item.qty,
+        });
+
+        results.push(res.data);
+      }
+
       setPaymentDone(true);
       setPaymentModal(false);
+
       setTimeout(() => {
         setCart([]);
         setCustomerName("");
         setPhone("");
         setPaymentDone(false);
       }, 2000);
+
+      await refreshProducts();
     } catch (err) {
-      const message = err.response?.data?.message || "Sale failed. Please try again.";
+      console.log("SELL ERROR:", err.response);
+
+      const message =
+        err.response?.data?.message || "Sale failed. Please try again.";
+
       setSellError(message);
     }
   };
 
   const handleReprint = () => {
-    if (!customerName.trim()) return alert("No receipt to reprint — cart is empty.");
+    if (!customerName.trim())
+      return alert("No receipt to reprint — cart is empty.");
     const lines = [
       "===== GREY & GREMA CARPET =====",
       `Customer: ${customerName}`,
       `Phone: ${phone}`,
       "--------------------------------",
       ...cart.map(
-        (i) => `${i.product_name} (x${i.qty})  ${formatNaira(i.price * i.qty)}`
+        (i) => `${i.product_name} (x${i.qty})  ${formatNaira(i.price * i.qty)}`,
       ),
       "--------------------------------",
       `TOTAL: ${formatNaira(total)}`,
       "================================",
     ].join("\n");
     const win = window.open("", "_blank");
-    win.document.write(`<pre style="font-family:monospace;font-size:14px;padding:24px">${lines}</pre>`);
+    win.document.write(
+      `<pre style="font-family:monospace;font-size:14px;padding:24px">${lines}</pre>`,
+    );
     win.print();
   };
 
@@ -169,11 +210,7 @@ export default function Store() {
         </header>
 
         {/* Stock warning toast */}
-        {stockWarning && (
-          <div style={s.warningToast}>
-            ⚠️ {stockWarning}
-          </div>
-        )}
+        {stockWarning && <div style={s.warningToast}>⚠️ {stockWarning}</div>}
 
         <div style={s.content}>
           <div style={s.gridArea}>
@@ -203,11 +240,13 @@ export default function Store() {
                     onMouseEnter={(e) => {
                       if (isOutOfStock) return;
                       e.currentTarget.style.transform = "translateY(-3px)";
-                      e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.12)";
+                      e.currentTarget.style.boxShadow =
+                        "0 6px 18px rgba(0,0,0,0.12)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)";
+                      e.currentTarget.style.boxShadow =
+                        "0 1px 4px rgba(0,0,0,0.08)";
                     }}
                   >
                     <div style={{ ...s.cardImg, position: "relative" }}>
@@ -216,7 +255,9 @@ export default function Store() {
                       )}
                     </div>
                     <div style={s.cardBody}>
-                      <p style={s.cardBrand}>{product.category || 'Uncategorized'}</p>
+                      <p style={s.cardBrand}>
+                        {product.category || "Uncategorized"}
+                      </p>
                       <p style={s.cardName}>{product.product_name}</p>
                       <p style={s.cardPrice}>
                         {formatNaira(product.price)}{" "}
@@ -225,7 +266,9 @@ export default function Store() {
                       {isOutOfStock ? (
                         <p style={s.outOfStockTag}>Out of Stock</p>
                       ) : (
-                        <p style={s.cardSize}>SKU: {product.unique_code || 'N/A'}</p>
+                        <p style={s.cardSize}>
+                          SKU: {product.unique_code || "N/A"}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -272,7 +315,9 @@ export default function Store() {
                     <div style={s.cartItemTop}>
                       <div>
                         <p style={s.cartItemName}>{item.product_name}</p>
-                        <p style={s.cartItemTag}>{item.category || 'UNCATEGORIZED'}</p>
+                        <p style={s.cartItemTag}>
+                          {item.category || "UNCATEGORIZED"}
+                        </p>
                       </div>
                       <button
                         style={s.removeBtn}
@@ -286,11 +331,19 @@ export default function Store() {
                     <div style={s.cartItemDims}>
                       <div style={s.dimBox}>
                         <label style={s.dimLabel}>SKU</label>
-                        <input style={s.dimInput} value={item.unique_code || 'N/A'} readOnly />
+                        <input
+                          style={s.dimInput}
+                          value={item.unique_code || "N/A"}
+                          readOnly
+                        />
                       </div>
                       <div style={s.dimBox}>
                         <label style={s.dimLabel}>Stock</label>
-                        <input style={s.dimInput} value={item.quantity} readOnly />
+                        <input
+                          style={s.dimInput}
+                          value={item.quantity}
+                          readOnly
+                        />
                       </div>
                       <div style={s.dimBox}>
                         <label style={s.dimLabel}>Rate (₦)</label>
@@ -329,7 +382,8 @@ export default function Store() {
                     {/* Per-item stock exceeded warning */}
                     {item.qty > item.quantity && (
                       <p style={s.itemStockWarning}>
-                        ⚠️ Exceeds available stock ({item.quantity} units) — reduce qty to proceed
+                        ⚠️ Exceeds available stock ({item.quantity} units) —
+                        reduce qty to proceed
                       </p>
                     )}
                   </div>
@@ -346,7 +400,10 @@ export default function Store() {
               style={{
                 ...s.proceedBtn,
                 opacity: cart.length === 0 || hasStockExceeded ? 0.5 : 1,
-                cursor: cart.length === 0 || hasStockExceeded ? "not-allowed" : "pointer",
+                cursor:
+                  cart.length === 0 || hasStockExceeded
+                    ? "not-allowed"
+                    : "pointer",
               }}
               onClick={handleProceed}
               disabled={cart.length === 0 || hasStockExceeded}
@@ -384,11 +441,12 @@ export default function Store() {
             <div style={s.modalTotal}>
               <b>Total:</b> <b>{formatNaira(total)}</b>
             </div>
-            {sellError && (
-              <p style={s.errorMsg}>⚠️ {sellError}</p>
-            )}
+            {sellError && <p style={s.errorMsg}>⚠️ {sellError}</p>}
             <div style={s.modalActions}>
-              <button style={s.modalCancel} onClick={() => setPaymentModal(false)}>
+              <button
+                style={s.modalCancel}
+                onClick={() => setPaymentModal(false)}
+              >
                 Cancel
               </button>
               <button style={s.modalConfirm} onClick={confirmPayment}>
@@ -561,8 +619,18 @@ const s = {
     fontWeight: 600,
     textTransform: "uppercase",
   },
-  cardName: { margin: "2px 0 4px", fontWeight: 800, fontSize: 15, color: "#111827" },
-  cardPrice: { margin: "0 0 2px", fontWeight: 700, fontSize: 14, color: "#2563eb" },
+  cardName: {
+    margin: "2px 0 4px",
+    fontWeight: 800,
+    fontSize: 15,
+    color: "#111827",
+  },
+  cardPrice: {
+    margin: "0 0 2px",
+    fontWeight: 700,
+    fontSize: 14,
+    color: "#2563eb",
+  },
   perUnit: { fontWeight: 400, fontSize: 11, color: "#9ca3af" },
   cardSize: { margin: 0, fontSize: 11, color: "#6b7280" },
   outOfStockTag: { margin: 0, fontSize: 11, fontWeight: 700, color: "#ef4444" },
@@ -577,7 +645,11 @@ const s = {
     gap: 12,
     overflowY: "auto",
   },
-  cartHeader: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cartHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   cartTitle: { fontWeight: 700, fontSize: 16, color: "#111827" },
   cartBadge: {
     background: "#3b82f6",
@@ -602,9 +674,20 @@ const s = {
     background: "#f9fafb",
     boxSizing: "border-box",
   },
-  phoneError: { margin: "4px 0 0", fontSize: 11, color: "#ef4444", fontWeight: 500 },
+  phoneError: {
+    margin: "4px 0 0",
+    fontSize: 11,
+    color: "#ef4444",
+    fontWeight: 500,
+  },
   cartItems: { display: "flex", flexDirection: "column", gap: 10, flex: 1 },
-  emptyCart: { color: "#9ca3af", fontSize: 13, textAlign: "center", marginTop: 20, lineHeight: 1.7 },
+  emptyCart: {
+    color: "#9ca3af",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 20,
+    lineHeight: 1.7,
+  },
   cartItem: {
     border: "1px solid #e5e7eb",
     borderRadius: 8,
@@ -614,10 +697,26 @@ const s = {
     gap: 8,
     background: "#fafafa",
   },
-  cartItemTop: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
+  cartItemTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   cartItemName: { margin: 0, fontWeight: 700, fontSize: 14, color: "#111827" },
-  cartItemTag: { margin: 0, fontSize: 10, color: "#6b7280", letterSpacing: 0.5 },
-  removeBtn: { background: "none", border: "none", cursor: "pointer", color: "#9ca3af", fontSize: 15, padding: 2 },
+  cartItemTag: {
+    margin: 0,
+    fontSize: 10,
+    color: "#6b7280",
+    letterSpacing: 0.5,
+  },
+  removeBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "#9ca3af",
+    fontSize: 15,
+    padding: 2,
+  },
   cartItemDims: { display: "flex", gap: 8 },
   dimBox: { flex: 1, display: "flex", flexDirection: "column", gap: 2 },
   dimLabel: { fontSize: 10, color: "#9ca3af" },
@@ -630,7 +729,11 @@ const s = {
     width: "100%",
     boxSizing: "border-box",
   },
-  cartItemBottom: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  cartItemBottom: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   qtyControl: {
     display: "flex",
     alignItems: "center",
@@ -650,11 +753,22 @@ const s = {
     lineHeight: 1,
     padding: "0 2px",
   },
-  qty: { fontSize: 14, fontWeight: 600, color: "#111827", minWidth: 16, textAlign: "center" },
+  qty: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#111827",
+    minWidth: 16,
+    textAlign: "center",
+  },
   subtotalBox: { textAlign: "right" },
   subtotalLabel: { display: "block", fontSize: 10, color: "#9ca3af" },
   subtotalAmt: { fontWeight: 700, color: "#2563eb", fontSize: 14 },
-  itemStockWarning: { margin: 0, fontSize: 11, color: "#ef4444", fontWeight: 600 },
+  itemStockWarning: {
+    margin: 0,
+    fontSize: 11,
+    color: "#ef4444",
+    fontWeight: 600,
+  },
   totalRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -676,8 +790,20 @@ const s = {
     letterSpacing: 0.3,
     transition: "opacity 0.2s",
   },
-  successMsg: { textAlign: "center", color: "#16a34a", fontWeight: 600, fontSize: 14, margin: 0 },
-  errorMsg: { textAlign: "center", color: "#ef4444", fontWeight: 500, fontSize: 13, margin: 0 },
+  successMsg: {
+    textAlign: "center",
+    color: "#16a34a",
+    fontWeight: 600,
+    fontSize: 14,
+    margin: 0,
+  },
+  errorMsg: {
+    textAlign: "center",
+    color: "#ef4444",
+    fontWeight: 500,
+    fontSize: 13,
+    margin: 0,
+  },
   modalOverlay: {
     position: "fixed",
     inset: 0,
@@ -707,7 +833,12 @@ const s = {
     flexDirection: "column",
     gap: 6,
   },
-  modalItem: { display: "flex", justifyContent: "space-between", fontSize: 13, color: "#374151" },
+  modalItem: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 13,
+    color: "#374151",
+  },
   modalTotal: {
     display: "flex",
     justifyContent: "space-between",

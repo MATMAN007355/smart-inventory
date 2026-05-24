@@ -534,7 +534,7 @@ function Login() {
     setLoading(true);
     try {
       const result = await login(fields.email, fields.password);
-      console.log("Auth System Server Response:", result);
+      // console.log("Auth System Server Response:", result);
 
       if (result?.success) {
         if (remember) {
@@ -546,8 +546,9 @@ function Login() {
           localStorage.removeItem("si_remember_email");
         }
 
-        const userData = result.data;
+        const userData = result?.user;
         toast.success(`Welcome back, ${userData?.first_name || "User"}!`);
+        // console.log(userData)
 
         const userRole = userData?.role?.toLowerCase();
         
