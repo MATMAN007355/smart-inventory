@@ -32,6 +32,8 @@ export default function Store() {
   const [stockWarning, setStockWarning] = useState("");
   const clock = useClockTick();
 
+  const [loading, setLoading] = useState(false);
+
   // Auto-dismiss stock warning after 3 seconds
   useEffect(() => {
     if (!stockWarning) return;
@@ -110,7 +112,7 @@ export default function Store() {
 
   const confirmPayment = async () => {
     setSellError(null);
-
+      setLoading(true);
     try {
       if (cart.length === 0) {
         setSellError("Cart is empty");
@@ -120,7 +122,7 @@ export default function Store() {
       // ✅ Get token directly
       const token = sessionStorage.getItem("token");
 
-      console.log("Token for sale request:", token);
+      // console.log("Token for sale request:", token);
 
       if (!token) {
         setSellError("Session expired. Please login again.");
@@ -147,14 +149,17 @@ export default function Store() {
         setPaymentDone(false);
       }, 2000);
 
+    
       await refreshProducts();
     } catch (err) {
-      console.log("SELL ERROR:", err.response);
+      // console.log("SELL ERROR:", err.response);
 
       const message =
         err.response?.data?.message || "Sale failed. Please try again.";
 
       setSellError(message);
+    }finally{
+        setLoading(false);
     }
   };
 
@@ -450,7 +455,7 @@ export default function Store() {
                 Cancel
               </button>
               <button style={s.modalConfirm} onClick={confirmPayment}>
-                Confirm Payment
+                {loading ? "Processing..." : "Confirm Payment"}
               </button>
             </div>
           </div>

@@ -40,15 +40,15 @@ export function AuthProvider({ children }) {
       // Direct Axios hit using your base config
       const response = await apiClient.post('/auth/login', { email, password });
       
-      const { success, token, data } = response.data;
+      const { success, token, user } = response.data;
 
       if (success && token) {
         // Save to sessionStorage right here
         sessionStorage.setItem('token', token);
-        sessionStorage.setItem('user', JSON.stringify(data));
-        
+        sessionStorage.setItem('user', JSON.stringify(user));
+        // console.log(user);
         // Update the context tracking state
-        setUser(data);
+        setUser(user);
       }
       
       // Return the response object to the component so it can handle redirects/messages
