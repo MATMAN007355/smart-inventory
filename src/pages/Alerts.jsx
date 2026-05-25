@@ -1,150 +1,177 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSettings } from "./settings";
+import apiClient from "../api/client";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
-// ─── Data ────────────────────────────────────────────────────────────────────
+// ─── Real-time data hook ──────────────────────────────────────────────────────
 
-const ALL_ALERTS = [
-  {
-    id: 1,
-    title: "15 items out of stock",
-    description: "These items are out of stock. Restock now to avoid disruptions.",
-    type: "Out of Stock",
-    typeBadge: "bg-red-950 text-red-400",
-    product: "Wireless Earbuds (WE-1001)",
-    productSub: "+ 14 more",
-    warehouse: "Main Warehouse",
-    date: "May 18, 2024",
-    time: "10:15 AM",
-    status: "New",
-    severity: "Critical",
-  },
-  {
-    id: 2,
-    title: "23 items low in stock",
-    description: "These items are running low. Consider reordering.",
-    type: "Low Stock",
-    typeBadge: "bg-yellow-950 text-yellow-400",
-    product: "Premium Coffee Beans (CF-2002)",
-    productSub: "+ 22 more",
-    warehouse: "Main Warehouse",
-    date: "May 18, 2024",
-    time: "9:30 AM",
-    status: "New",
-    severity: "Warning",
-  },
-  {
-    id: 3,
-    title: "PO #1052 is delayed",
-    description: "Expected delivery date is May 20, 2024",
-    type: "Purchase Order",
-    typeBadge: "bg-blue-950 text-blue-400",
-    product: "PO #1052",
-    productSub: "Supplier: Fresh Supplies Co.",
-    warehouse: "Main Warehouse",
-    date: "May 18, 2024",
-    time: "8:45 AM",
-    status: "New",
-    severity: "Warning",
-  },
-  {
-    id: 4,
-    title: "Stock in completed",
-    description: "PO #1051 has been received successfully.",
-    type: "Stock In",
-    typeBadge: "bg-emerald-950 text-emerald-400",
-    product: "PO #1051",
-    productSub: "123 items received",
-    warehouse: "Main Warehouse",
-    date: "May 18, 2024",
-    time: "7:20 AM",
-    status: "Resolved",
-    severity: "Info",
-  },
-  {
-    id: 5,
-    title: "Reorder level reached",
-    description: "Ergonomic Chair (CH-3003) has reached reorder level.",
-    type: "Reorder Level",
-    typeBadge: "bg-orange-950 text-orange-400",
-    product: "Ergonomic Chair (CH-3003)",
-    productSub: "",
-    warehouse: "Main Warehouse",
-    date: "May 17, 2024",
-    time: "6:10 PM",
-    status: "New",
-    severity: "Critical",
-  },
-  {
-    id: 6,
-    title: "Temperature sensor alert",
-    description: "Cold storage unit B exceeded safe temperature threshold.",
-    type: "Out of Stock",
-    typeBadge: "bg-red-950 text-red-400",
-    product: "Cold Storage Unit B",
-    productSub: "",
-    warehouse: "Warehouse B",
-    date: "May 17, 2024",
-    time: "5:00 PM",
-    status: "New",
-    severity: "Critical",
-  },
-  {
-    id: 7,
-    title: "5 items expiring soon",
-    description: "These items will expire within 7 days.",
-    type: "Low Stock",
-    typeBadge: "bg-yellow-950 text-yellow-400",
-    product: "Organic Milk (OM-4401)",
-    productSub: "+ 4 more",
-    warehouse: "Warehouse B",
-    date: "May 17, 2024",
-    time: "3:45 PM",
-    status: "New",
-    severity: "Warning",
-  },
-  {
-    id: 8,
-    title: "New supplier registered",
-    description: "Green Valley Farms has been added as a supplier.",
-    type: "Purchase Order",
-    typeBadge: "bg-blue-950 text-blue-400",
-    product: "Green Valley Farms",
-    productSub: "Supplier onboarded",
-    warehouse: "Main Warehouse",
-    date: "May 17, 2024",
-    time: "2:30 PM",
-    status: "Resolved",
-    severity: "Info",
-  },
-  {
-    id: 9,
-    title: "Stock transfer completed",
-    description: "50 units moved from Main Warehouse to Warehouse B.",
-    type: "Stock In",
-    typeBadge: "bg-emerald-950 text-emerald-400",
-    product: "Office Chairs (OC-2200)",
-    productSub: "50 units transferred",
-    warehouse: "Warehouse B",
-    date: "May 16, 2024",
-    time: "11:00 AM",
-    status: "Resolved",
-    severity: "Info",
-  },
-  {
-    id: 10,
-    title: "Reorder level reached",
-    description: "Standing Desk (SD-5500) has reached reorder level.",
-    type: "Reorder Level",
-    typeBadge: "bg-orange-950 text-orange-400",
-    product: "Standing Desk (SD-5500)",
-    productSub: "",
-    warehouse: "Main Warehouse",
-    date: "May 16, 2024",
-    time: "9:15 AM",
-    status: "New",
-    severity: "Warning",
-  },
-];
+const POLL_MS = 30_000;
+
+function getTypeBadge(type) {
+  switch (type) {
+    case "Out of Stock":   return "bg-red-950 text-red-400";
+    case "Low Stock":      return "bg-yellow-950 text-yellow-400";
+    case "Purchase Order": return "bg-blue-950 text-blue-400";
+    case "Stock In":       return "bg-emerald-950 text-emerald-400";
+    case "Reorder Level":  return "bg-orange-950 text-orange-400";
+    default:               return "bg-slate-800 text-slate-400";
+  }
+}
+
+function formatDate(dateVal) {
+  if (!dateVal) return "—";
+  return new Date(dateVal).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+}
+
+function formatTime(dateVal) {
+  if (!dateVal) return "—";
+  return new Date(dateVal).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// Each product gets its own individual alert row
+function mapProductsToAlerts(products, LOW = 10, REORDER = 5) {
+  const alerts = [];
+  let id = 1000;
+
+  products.forEach((p) => {
+    if (p.quantity === 0) {
+      alerts.push({
+        id: id++,
+        title: "Out of stock",
+        description: `${p.product_name} has no remaining stock.`,
+        type: "Out of Stock",
+        typeBadge: getTypeBadge("Out of Stock"),
+        product: p.product_name,
+        category: p.category || p.warehouse || "—",
+        date: formatDate(p.updatedAt || p.createdAt),
+        time: formatTime(p.updatedAt || p.createdAt),
+        status: "New",
+        severity: "Critical",
+      });
+    } else if (p.quantity <= REORDER) {
+      alerts.push({
+        id: id++,
+        title: "Reorder level reached",
+        description: `${p.product_name} has reached reorder level (${p.quantity} left).`,
+        type: "Reorder Level",
+        typeBadge: getTypeBadge("Reorder Level"),
+        product: p.product_name,
+        category: p.category || p.warehouse || "—",
+        date: formatDate(p.updatedAt || p.createdAt),
+        time: formatTime(p.updatedAt || p.createdAt),
+        status: "New",
+        severity: "Critical",
+      });
+    } else if (p.quantity <= LOW) {
+      alerts.push({
+        id: id++,
+        title: "Low stock",
+        description: `${p.product_name} is running low (${p.quantity} left).`,
+        type: "Low Stock",
+        typeBadge: getTypeBadge("Low Stock"),
+        product: p.product_name,
+        category: p.category || p.warehouse || "—",
+        date: formatDate(p.updatedAt || p.createdAt),
+        time: formatTime(p.updatedAt || p.createdAt),
+        status: "New",
+        severity: "Warning",
+      });
+    }
+  });
+
+  return alerts;
+}
+
+function mapSalesToAlerts(sales) {
+  return (Array.isArray(sales) ? sales : []).map((sale, i) => {
+    const qty = Math.abs(parseFloat(sale.quantity_sold) || 0);
+    const seller = sale.sold_by
+      ? `${sale.sold_by.first_name ?? ""} ${sale.sold_by.last_name ?? ""}`.trim()
+      : "";
+    return {
+      id: 2000 + i,
+      title: "Stock out completed",
+      description: `${sale.product_name} — ${qty} unit${qty !== 1 ? "s" : ""} sold.`,
+      type: "Stock In",
+      typeBadge: getTypeBadge("Stock In"),
+      product: sale.product_name,
+      category: sale.product?.category || "—",
+      date: formatDate(sale.createdAt),
+      time: formatTime(sale.createdAt),
+      status: "Resolved",
+      severity: "Info",
+    };
+  });
+}
+
+function mapPOsToAlerts(orders) {
+  return (Array.isArray(orders) ? orders : []).map((order, i) => {
+    const isDelayed = order.status === "delayed" || !!order.is_delayed;
+    return {
+      id: 3000 + i,
+      title: isDelayed ? "Purchase order delayed" : "Purchase order received",
+      description: order.description ||
+        (isDelayed
+          ? `Expected delivery: ${formatDate(order.expected_date)}`
+          : `Supplier: ${order.supplier_name || "—"}`),
+      type: "Purchase Order",
+      typeBadge: getTypeBadge("Purchase Order"),
+      product: order.supplier_name || "—",
+      category: order.category || order.warehouse || "—",
+      date: formatDate(order.createdAt),
+      time: formatTime(order.createdAt),
+      status: order.status === "completed" ? "Resolved" : "New",
+      severity: isDelayed ? "Warning" : "Info",
+    };
+  });
+}
+
+function useAlertsData() {
+  const [alerts, setAlerts]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState(null);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const productsRes = await apiClient.get("/products");
+      const products    = productsRes.data?.data ?? productsRes.data ?? [];
+
+      const salesRes = await apiClient.get("/products/sales/all").catch(() => ({ data: [] }));
+      const sales    = salesRes.data?.data ?? salesRes.data ?? [];
+
+      const poRes  = await apiClient.get("/purchase-orders").catch(() => ({ data: [] }));
+      const orders = Array.isArray(poRes.data?.data)
+        ? poRes.data.data
+        : Array.isArray(poRes.data) ? poRes.data : [];
+
+      const combined = [
+        ...mapProductsToAlerts(products),
+        ...mapSalesToAlerts(sales),
+        ...mapPOsToAlerts(orders),
+      ].sort((a, b) => (a.status !== b.status ? (a.status === "New" ? -1 : 1) : 0));
+
+      setAlerts(combined);
+      setError(null);
+    } catch (err) {
+      console.error("useAlertsData error:", err);
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    const id = setInterval(fetchAll, POLL_MS);
+    return () => clearInterval(id);
+  }, [fetchAll]);
+
+  return { alerts, loading, error, refreshAlerts: fetchAll };
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const ITEMS_PER_PAGE = 5;
 
@@ -168,7 +195,6 @@ function loadNotifSettings() {
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
-const cardClass = "bg-slate-900 border border-slate-700 rounded-xl p-6";
 const selectClass = "text-xs border border-slate-600 rounded-lg px-2 py-1 outline-none bg-slate-800 text-slate-300";
 
 // ─── Toggle Switch ────────────────────────────────────────────────────────────
@@ -200,10 +226,7 @@ function NotificationSettingsModal({ onClose, onSettingsSaved }) {
     localStorage.setItem("notificationSettings", JSON.stringify(settings));
     onSettingsSaved(settings);
     setSaved(true);
-    setTimeout(() => {
-      setSaved(false);
-      onClose();
-    }, 800);
+    setTimeout(() => { setSaved(false); onClose(); }, 800);
   };
 
   return (
@@ -287,8 +310,8 @@ function ViewAlertModal({ alert, onClose, onMarkResolved }) {
             <span className="text-slate-300">{alert.product}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Warehouse</span>
-            <span className="text-slate-300">{alert.warehouse}</span>
+            <span className="text-slate-500">Category</span>
+            <span className="text-slate-300">{alert.category}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Date & Time</span>
@@ -297,9 +320,7 @@ function ViewAlertModal({ alert, onClose, onMarkResolved }) {
           <div className="flex justify-between">
             <span className="text-slate-500">Status</span>
             <span className={`text-xs px-2 py-1 rounded-full ${
-              alert.status === "Resolved"
-                ? "bg-emerald-950 text-emerald-400"
-                : "bg-red-950 text-red-400"
+              alert.status === "Resolved" ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"
             }`}>
               {alert.status}
             </span>
@@ -333,15 +354,16 @@ function Alerts() {
   const { inventoryToggles } = useSettings();
   const lowStockAlertsEnabled = inventoryToggles["Enable Low Stock Alerts"] ?? true;
 
-  const [alerts, setAlerts]                       = useState(ALL_ALERTS);
-  const [activeTab, setActiveTab]                 = useState("All Alerts");
-  const [typeFilter, setTypeFilter]               = useState("All Types");
-  const [warehouseFilter, setWarehouseFilter]     = useState("All Warehouses");
-  const [statusFilter, setStatusFilter]           = useState("All Status");
-  const [currentPage, setCurrentPage]             = useState(1);
-  const [viewAlert, setViewAlert]                 = useState(null);
+  const { alerts: fetchedAlerts, loading: alertsLoading, refreshAlerts } = useAlertsData();
+  const [alerts, setAlerts] = useState([]);
+  useEffect(() => { setAlerts(fetchedAlerts); }, [fetchedAlerts]);
+
+  const [typeFilter, setTypeFilter]     = useState("All Types");
+  const [statusFilter, setStatusFilter] = useState("All Status");
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [viewAlert, setViewAlert]       = useState(null);
   const [showNotifSettings, setShowNotifSettings] = useState(false);
-  const [notifSettings, setNotifSettings]         = useState(loadNotifSettings);
+  const [notifSettings, setNotifSettings] = useState(loadNotifSettings);
 
   const criticalCount = alerts.filter((a) => a.severity === "Critical" && a.status !== "Resolved" && notifSettings.critical).length;
   const warningCount  = alerts.filter((a) => a.severity === "Warning"  && a.status !== "Resolved" && notifSettings.warning && lowStockAlertsEnabled).length;
@@ -354,16 +376,9 @@ function Alerts() {
       (a.severity === "Critical" && notifSettings.critical) ||
       (a.severity === "Warning"  && notifSettings.warning)  ||
       (a.severity === "Info"     && notifSettings.info);
-    const tabMatch =
-      activeTab === "All Alerts" ||
-      (activeTab === "Critical" && a.severity === "Critical") ||
-      (activeTab === "Warning"  && a.severity === "Warning")  ||
-      (activeTab === "Info"     && a.severity === "Info")     ||
-      (activeTab === "Resolved" && a.status   === "Resolved");
-    const typeMatch      = typeFilter      === "All Types"      || a.type      === typeFilter;
-    const warehouseMatch = warehouseFilter === "All Warehouses" || a.warehouse === warehouseFilter;
-    const statusMatch    = statusFilter    === "All Status"     || a.status    === statusFilter;
-    return severityAllowed && tabMatch && typeMatch && warehouseMatch && statusMatch;
+    const typeMatch   = typeFilter   === "All Types"  || a.type   === typeFilter;
+    const statusMatch = statusFilter === "All Status" || a.status === statusFilter;
+    return severityAllowed && typeMatch && statusMatch;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -372,21 +387,13 @@ function Alerts() {
 
   const goToPage = (p) => setCurrentPage(Math.max(1, Math.min(p, totalPages)));
 
-  const handleTabChange       = (tab) => { setActiveTab(tab);     setCurrentPage(1); };
-  const handleTypeFilter      = (v)   => { setTypeFilter(v);      setCurrentPage(1); };
-  const handleWarehouseFilter = (v)   => { setWarehouseFilter(v); setCurrentPage(1); };
-  const handleStatusFilter    = (v)   => { setStatusFilter(v);    setCurrentPage(1); };
+  const handleTypeFilter   = (v) => { setTypeFilter(v);   setCurrentPage(1); };
+  const handleStatusFilter = (v) => { setStatusFilter(v); setCurrentPage(1); };
 
-  const isFiltered =
-    activeTab !== "All Alerts" ||
-    typeFilter !== "All Types" ||
-    warehouseFilter !== "All Warehouses" ||
-    statusFilter !== "All Status";
+  const isFiltered = typeFilter !== "All Types" || statusFilter !== "All Status";
 
   const clearFilters = () => {
-    setActiveTab("All Alerts");
     setTypeFilter("All Types");
-    setWarehouseFilter("All Warehouses");
     setStatusFilter("All Status");
     setCurrentPage(1);
   };
@@ -398,9 +405,9 @@ function Alerts() {
     setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, status: "Resolved" } : a));
 
   const exportCSV = () => {
-    const header = ["ID", "Title", "Type", "Product", "Warehouse", "Date", "Time", "Status", "Severity"];
+    const header = ["ID", "Title", "Type", "Product", "Category", "Date", "Time", "Status", "Severity"];
     const rows = filtered.map((a) => [
-      a.id, `"${a.title}"`, a.type, `"${a.product}"`, a.warehouse, a.date, a.time, a.status, a.severity,
+      a.id, `"${a.title}"`, a.type, `"${a.product}"`, a.category, a.date, a.time, a.status, a.severity,
     ]);
     const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -410,8 +417,17 @@ function Alerts() {
     URL.revokeObjectURL(url);
   };
 
+  // ── Full-screen loading ───────────────────────────────────────────────────
+  if (alertsLoading && alerts.length === 0) {
+    return (
+      <main className="flex-1 min-h-screen bg-slate-800 flex items-center justify-center">
+        <p className="text-slate-400 text-sm animate-pulse">Loading alerts...</p>
+      </main>
+    );
+  }
+
   return (
-    <main className="flex-1 bg-slate-800 p-8">
+    <main className="flex-1 min-h-screen bg-slate-800 p-8">
 
       {/* Modals */}
       {showNotifSettings && (
@@ -435,6 +451,12 @@ function Alerts() {
           <p className="text-sm text-slate-400 mt-1">View and manage all inventory alerts</p>
         </div>
         <div className="flex items-center gap-3 mt-1">
+          <button
+            onClick={refreshAlerts}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-xl bg-slate-900 text-sm font-medium text-slate-300 hover:bg-slate-700"
+          >
+            ↺ Refresh
+          </button>
           <button
             onClick={markAllAsRead}
             className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-xl bg-slate-900 text-sm font-medium text-slate-300 hover:bg-slate-700"
@@ -482,57 +504,35 @@ function Alerts() {
         </div>
       )}
 
-      {/* Tabs + Filters */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-        <div className="flex items-center gap-6 text-sm font-medium text-slate-500 border-b border-slate-700">
-          {["All Alerts", "Critical", "Warning", "Info", "Resolved"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab)}
-              className={`pb-3 transition-colors ${
-                activeTab === tab
-                  ? "text-slate-100 border-b-2 border-indigo-500"
-                  : "hover:text-slate-300"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <select value={typeFilter} onChange={(e) => handleTypeFilter(e.target.value)} className={selectClass}>
-            <option>All Types</option>
-            <option>Out of Stock</option>
-            <option>Low Stock</option>
-            <option>Purchase Order</option>
-            <option>Stock In</option>
-            <option>Reorder Level</option>
-          </select>
-          <select value={warehouseFilter} onChange={(e) => handleWarehouseFilter(e.target.value)} className={selectClass}>
-            <option>All Warehouses</option>
-            <option>Main Warehouse</option>
-            <option>Warehouse B</option>
-          </select>
-          <select value={statusFilter} onChange={(e) => handleStatusFilter(e.target.value)} className={selectClass}>
-            <option>All Status</option>
-            <option>New</option>
-            <option>Resolved</option>
-          </select>
+      {/* Filters */}
+      <div className="flex items-center justify-end mb-4 gap-3 flex-wrap">
+        <select value={typeFilter} onChange={(e) => handleTypeFilter(e.target.value)} className={selectClass}>
+          <option>All Types</option>
+          <option>Out of Stock</option>
+          <option>Low Stock</option>
+          <option>Purchase Order</option>
+          <option>Stock In</option>
+          <option>Reorder Level</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => handleStatusFilter(e.target.value)} className={selectClass}>
+          <option>All Status</option>
+          <option>New</option>
+          <option>Resolved</option>
+        </select>
+        <button
+          onClick={exportCSV}
+          className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-xl bg-slate-900 text-xs text-slate-300 hover:bg-slate-700"
+        >
+          ⬇️ Export
+        </button>
+        {isFiltered && (
           <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-600 rounded-xl bg-slate-900 text-xs text-slate-300 hover:bg-slate-700"
+            onClick={clearFilters}
+            className="flex items-center gap-2 px-4 py-2 border border-red-900 rounded-xl bg-red-950 text-xs text-red-400 hover:bg-red-900"
           >
-            ⬇️ Export
+            ✕ Clear Filters
           </button>
-          {isFiltered && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-2 px-4 py-2 border border-red-900 rounded-xl bg-red-950 text-xs text-red-400 hover:bg-red-900"
-            >
-              ✕ Clear Filters
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Table */}
@@ -542,8 +542,8 @@ function Alerts() {
             <tr>
               <th className="px-6 py-4 text-left">Alert</th>
               <th className="px-6 py-4 text-left">Type</th>
-              <th className="px-6 py-4 text-left">Product / Reference</th>
-              <th className="px-6 py-4 text-left">Warehouse</th>
+              <th className="px-6 py-4 text-left">Product</th>
+              <th className="px-6 py-4 text-left">Category</th>
               <th className="px-6 py-4 text-left">Date & Time</th>
               <th className="px-6 py-4 text-left">Status</th>
               <th className="px-6 py-4 text-left">Actions</th>
@@ -568,18 +568,17 @@ function Alerts() {
                   </td>
                   <td className="px-6 py-4">
                     <p className="text-slate-300">{alert.product}</p>
-                    {alert.productSub && <p className="text-xs text-slate-500">{alert.productSub}</p>}
                   </td>
-                  <td className="px-6 py-4">{alert.warehouse}</td>
+                  <td className="px-6 py-4">
+                    <p className="text-slate-300 capitalize">{alert.category}</p>
+                  </td>
                   <td className="px-6 py-4">
                     <p className="text-slate-300">{alert.date}</p>
                     <p className="text-xs text-slate-500">{alert.time}</p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs px-2 py-1 rounded-full ${
-                      alert.status === "Resolved"
-                        ? "bg-emerald-950 text-emerald-400"
-                        : "bg-red-950 text-red-400"
+                      alert.status === "Resolved" ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"
                     }`}>
                       {alert.status}
                     </span>
@@ -599,47 +598,41 @@ function Alerts() {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-6 text-sm text-slate-500">
-        <p>
-          Showing {filtered.length === 0 ? 0 : (safePage - 1) * ITEMS_PER_PAGE + 1} to{" "}
-          {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} alerts
-        </p>
-        <div className="flex items-center gap-2">
+      {/* Pagination — matches Products.jsx style */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '20px', gap: '12px' }}>
           <button
             onClick={() => goToPage(safePage - 1)}
             disabled={safePage === 1}
-            className="px-3 py-1 rounded-lg border border-slate-600 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300"
+            style={{
+              display: 'flex', alignItems: 'center',
+              backgroundColor: '#0f172a', border: '1px solid #334155',
+              borderRadius: '8px', color: '#94a3b8', padding: '8px', cursor: 'pointer',
+              opacity: safePage === 1 ? 0.4 : 1,
+            }}
           >
-            ‹
+            <FiChevronLeft size={18} />
           </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => goToPage(p)}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                p === safePage
-                  ? "bg-indigo-600 text-white"
-                  : "border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+          <span style={{ fontSize: '14px', color: '#94a3b8' }}>
+            Page <strong style={{ color: '#f8fafc' }}>{safePage}</strong> of {totalPages}
+          </span>
           <button
             onClick={() => goToPage(safePage + 1)}
             disabled={safePage === totalPages}
-            className="px-3 py-1 rounded-lg border border-slate-600 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300"
+            style={{
+              display: 'flex', alignItems: 'center',
+              backgroundColor: '#0f172a', border: '1px solid #334155',
+              borderRadius: '8px', color: '#94a3b8', padding: '8px', cursor: 'pointer',
+              opacity: safePage === totalPages ? 0.4 : 1,
+            }}
           >
-            ›
+            <FiChevronRight size={18} />
           </button>
         </div>
-      </div>
+      )}
 
     </main>
   );
 }
 
 export default Alerts;
-
-// /products/IPHO-1857/sell

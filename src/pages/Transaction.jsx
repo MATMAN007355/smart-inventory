@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSettings } from "./settings";
 import apiClient from "../api/client";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
 const TYPE_ICON = {
   "Stock In":  { icon: "⬇️", color: "text-emerald-400" },
@@ -151,9 +152,9 @@ function TransactionModal({ transaction: t, onClose, symbol, dateFormat }) {
 // ── COMPONENT ─────────────────────────────────────────────────────────────────
 function Transaction() {
 
-  const { currency, dateFormat, itemsPerPage, warehouse } = useSettings();
+  const { currency, dateFormat, warehouse } = useSettings();
   const symbol      = getCurrencySymbol(currency);
-  const rowsPerPage = parseInt(itemsPerPage) || 6;
+  const rowsPerPage = 10; // fixed at 10 rows per page
 
   const [salesData,      setSalesData]      = useState([]);
   const [typeFilter,     setTypeFilter]     = useState("All Types");
@@ -418,36 +419,38 @@ function Transaction() {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-6 text-sm text-slate-500">
-        <p>
-          Showing {filtered.length === 0 ? 0 : pageStart + 1} to{" "}
-          {Math.min(pageStart + rowsPerPage, filtered.length)} of {filtered.length} transactions
-        </p>
-        <div className="flex items-center gap-2">
+      {/* Pagination — matches Products.jsx style */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '20px', gap: '12px' }}>
           <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
             disabled={safePage === 1}
-            className="px-3 py-1 rounded-lg border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >Previous</button>
-          {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`px-3 py-1 rounded-lg ${
-                safePage === page
-                  ? "bg-indigo-600 text-white"
-                  : "border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700"
-              }`}
-            >{page}</button>
-          ))}
+            style={{
+              display: 'flex', alignItems: 'center',
+              backgroundColor: '#0f172a', border: '1px solid #334155',
+              borderRadius: '8px', color: '#94a3b8', padding: '8px', cursor: 'pointer',
+              opacity: safePage === 1 ? 0.4 : 1,
+            }}
+          >
+            <FiChevronLeft size={18} />
+          </button>
+          <span style={{ fontSize: '14px', color: '#94a3b8' }}>
+            Page <strong style={{ color: '#f8fafc' }}>{safePage}</strong> of {totalPages}
+          </span>
           <button
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
             disabled={safePage === totalPages}
-            className="px-3 py-1 rounded-lg border border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >Next</button>
+            style={{
+              display: 'flex', alignItems: 'center',
+              backgroundColor: '#0f172a', border: '1px solid #334155',
+              borderRadius: '8px', color: '#94a3b8', padding: '8px', cursor: 'pointer',
+              opacity: safePage === totalPages ? 0.4 : 1,
+            }}
+          >
+            <FiChevronRight size={18} />
+          </button>
         </div>
-      </div>
+      )}
 
     </main>
   );

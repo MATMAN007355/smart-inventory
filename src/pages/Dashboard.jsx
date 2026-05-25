@@ -1017,49 +1017,54 @@ function Dashboard() {
                 <th className="text-left pb-2">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
-              {filteredLowStock.length > 0 ? (
-                filteredLowStock.slice(0, 5).map((item) => (
-                  <tr
-                    key={item.unique_code || item.product_name}
-                    className="hover:bg-slate-800"
-                  >
-                    <td className="py-3 text-slate-200">{item.product_name}</td>
-                    <td className="py-3 text-xs text-slate-500">
-                      {item.unique_code || "N/A"}
-                    </td>
-                    <td className="py-3 text-red-400 font-semibold">
-                      {item.quantity}
-                    </td>
-                    <td className="py-3">
-                      <span className="bg-amber-950 text-amber-400 text-xs px-2 py-1 rounded-full">
-                        {item.quantity === 0 ? "Out of Stock" : "Low Stock"}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => setReorderItem(item)}
-                        className="text-xs border border-slate-600 px-2 py-1 rounded-lg hover:bg-slate-700 text-slate-300"
-                      >
-                        Reorder
-                      </button>
+          </table>
+          {/* fixed-height scrollable body — shows 4 rows, scrolls if more */}
+          <div className="overflow-y-auto" style={{ maxHeight: "176px" }}>
+            <table className="w-full text-sm text-slate-400">
+              <tbody className="divide-y divide-slate-800">
+                {filteredLowStock.length > 0 ? (
+                  filteredLowStock.map((item) => (
+                    <tr
+                      key={item.unique_code || item.product_name}
+                      className="hover:bg-slate-800"
+                    >
+                      <td className="py-3 text-slate-200">{item.product_name}</td>
+                      <td className="py-3 text-xs text-slate-500">
+                        {item.unique_code || "N/A"}
+                      </td>
+                      <td className="py-3 text-red-400 font-semibold">
+                        {item.quantity}
+                      </td>
+                      <td className="py-3">
+                        <span className="bg-amber-950 text-amber-400 text-xs px-2 py-1 rounded-full">
+                          {item.quantity === 0 ? "Out of Stock" : "Low Stock"}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <button
+                          onClick={() => setReorderItem(item)}
+                          className="text-xs border border-slate-600 px-2 py-1 rounded-lg hover:bg-slate-700 text-slate-300"
+                        >
+                          Reorder
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-6 text-center text-slate-500 text-sm"
+                    >
+                      {search
+                        ? "No results found"
+                        : "All items are well stocked ✓"}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-6 text-center text-slate-500 text-sm"
-                  >
-                    {search
-                      ? "No results found"
-                      : "All items are well stocked ✓"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Recent Stock Movements */}
@@ -1090,51 +1095,56 @@ function Dashboard() {
                 <th className="text-left pb-2">Time</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
-              {salesLoading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-6 text-center text-slate-500 text-sm"
-                  >
-                    Loading transactions...
-                  </td>
-                </tr>
-              ) : salesData.length > 0 ? (
-                salesData.slice(0, 5).map((t, i) => (
-                  <tr key={t.reference || i} className="hover:bg-slate-800">
-                    <td className="py-3">
-                      <p className="text-slate-200 truncate max-w-[120px]">
-                        {t.product}
-                      </p>
-                      <p className="text-xs text-slate-500">{t.sku}</p>
-                    </td>
-                    <td className="py-3 text-xs text-slate-400 capitalize">
-                      {t.location || t.category}
-                    </td>
-                    <td className="py-3 font-semibold text-emerald-400">
-                      {t.quantity}
-                    </td>
-                    <td className="py-3 font-semibold text-emerald-400">
-                      {fmtCurrency(t.totalValue)}
-                    </td>
-                    <td className="py-3 text-xs text-slate-500 whitespace-nowrap">
-                      {t.time}
+          </table>
+          {/* fixed-height scrollable body — shows 4 rows, scrolls if more */}
+          <div className="overflow-y-auto" style={{ maxHeight: "176px" }}>
+            <table className="w-full text-sm text-slate-400">
+              <tbody className="divide-y divide-slate-800">
+                {salesLoading ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-6 text-center text-slate-500 text-sm"
+                    >
+                      Loading transactions...
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-6 text-center text-slate-500 text-sm"
-                  >
-                    No movements recorded yet
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ) : salesData.length > 0 ? (
+                  salesData.map((t, i) => (
+                    <tr key={t.reference || i} className="hover:bg-slate-800">
+                      <td className="py-3">
+                        <p className="text-slate-200 truncate max-w-[120px]">
+                          {t.product}
+                        </p>
+                        <p className="text-xs text-slate-500">{t.sku}</p>
+                      </td>
+                      <td className="py-3 text-xs text-slate-400 capitalize">
+                        {t.location || t.category}
+                      </td>
+                      <td className="py-3 font-semibold text-emerald-400">
+                        {t.quantity}
+                      </td>
+                      <td className="py-3 font-semibold text-emerald-400">
+                        {fmtCurrency(t.totalValue)}
+                      </td>
+                      <td className="py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {t.time}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-6 text-center text-slate-500 text-sm"
+                    >
+                      No movements recorded yet
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

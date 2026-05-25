@@ -165,41 +165,6 @@ const cardClass  = "bg-slate-900 border border-slate-700 rounded-xl p-6";
 const selectClass = "text-xs border border-slate-600 rounded-lg px-2 py-1 outline-none bg-slate-800 text-slate-300";
 const tooltipStyle = { backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#94a3b8" };
 
-// ─── Tab placeholders ─────────────────────────────────────────────────────────
-
-function InventoryAnalysisTab() {
-  return (
-    <div className={`${cardClass} text-sm text-slate-400`}>
-      <h2 className="font-semibold text-slate-200 mb-4">Inventory Analysis</h2>
-      <p>Detailed inventory breakdown by category, location, and SKU performance would appear here.</p>
-    </div>
-  );
-}
-function SalesAnalysisTab() {
-  return (
-    <div className={`${cardClass} text-sm text-slate-400`}>
-      <h2 className="font-semibold text-slate-200 mb-4">Sales Analysis</h2>
-      <p>Sales trends, top products, and revenue breakdowns would appear here.</p>
-    </div>
-  );
-}
-function SupplierPerformanceTab() {
-  return (
-    <div className={`${cardClass} text-sm text-slate-400`}>
-      <h2 className="font-semibold text-slate-200 mb-4">Supplier Performance</h2>
-      <p>On-time delivery rates, defect rates, and supplier scorecards would appear here.</p>
-    </div>
-  );
-}
-function DemandForecastTab() {
-  return (
-    <div className={`${cardClass} text-sm text-slate-400`}>
-      <h2 className="font-semibold text-slate-200 mb-4">Demand Forecast</h2>
-      <p>AI-driven demand predictions by SKU, category, and warehouse would appear here.</p>
-    </div>
-  );
-}
-
 // ─── Insight Detail Modal ─────────────────────────────────────────────────────
 
 function InsightModal({ insight, onClose }) {
@@ -310,7 +275,6 @@ function Analytics() {
   const { currency, lowStockThreshold } = useSettings();
   const symbol = getCurrencySymbol(currency);
 
-  const [activeTab,        setActiveTab]        = useState("Overview");
   const [invValueRange,    setInvValueRange]    = useState("7 Days");
   const [turnoverRange,    setTurnoverRange]    = useState("7 Days");
   const [categoriesRange,  setCategoriesRange]  = useState("7 Days");
@@ -364,291 +328,263 @@ function Analytics() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-slate-700 mb-6 text-sm font-medium text-slate-500">
-        {["Overview", "Inventory Analysis", "Sales Analysis", "Supplier Performance", "Demand Forecast"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 transition-colors ${
-              activeTab === tab
-                ? "text-slate-100 border-b-2 border-indigo-500"
-                : "hover:text-slate-300"
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 mb-1">Total Inventory Value</p>
+          <p className="text-xl font-bold text-slate-100">{formatCurrency(symbol, 245680)}</p>
+          <p className="text-xs text-emerald-400 mt-1">▲ 12.5% vs previous 7 days</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 mb-1">Gross Margin</p>
+          <p className="text-xl font-bold text-slate-100">32.6%</p>
+          <p className="text-xs text-emerald-400 mt-1">▲ 4.2% vs previous 7 days</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 mb-1">Inventory Turnover Ratio</p>
+          <p className="text-xl font-bold text-slate-100">6.8x</p>
+          <p className="text-xs text-emerald-400 mt-1">▲ 1.3x vs previous 7 days</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 mb-1">Stockout Cost</p>
+          <p className="text-xl font-bold text-slate-100">{formatCurrency(symbol, 4350)}</p>
+          <p className="text-xs text-red-400 mt-1">▼ 8.7% vs previous 7 days</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+          <p className="text-xs text-slate-400 mb-1">Forecast Accuracy</p>
+          <p className="text-xl font-bold text-slate-100">87.6%</p>
+          <p className="text-xs text-emerald-400 mt-1">▲ 5.4% vs previous 7 days</p>
+        </div>
       </div>
 
-      {/* Non-overview tabs */}
-      {activeTab === "Inventory Analysis"   && <InventoryAnalysisTab />}
-      {activeTab === "Sales Analysis"       && <SalesAnalysisTab />}
-      {activeTab === "Supplier Performance" && <SupplierPerformanceTab />}
-      {activeTab === "Demand Forecast"      && <DemandForecastTab />}
+      {/* Charts Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-      {/* Overview tab */}
-      {activeTab === "Overview" && <>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-            <p className="text-xs text-slate-400 mb-1">Total Inventory Value</p>
-            <p className="text-xl font-bold text-slate-100">{formatCurrency(symbol, 245680)}</p>
-            <p className="text-xs text-emerald-400 mt-1">▲ 12.5% vs previous 7 days</p>
+        {/* Inventory Value Over Time */}
+        <div className={`${cardClass} h-64`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Inventory Value Over Time</h2>
+            <select value={invValueRange} onChange={(e) => setInvValueRange(e.target.value)} className={selectClass}>
+              <option>7 Days</option>
+              <option>30 Days</option>
+            </select>
           </div>
-          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-            <p className="text-xs text-slate-400 mb-1">Gross Margin</p>
-            <p className="text-xl font-bold text-slate-100">32.6%</p>
-            <p className="text-xs text-emerald-400 mt-1">▲ 4.2% vs previous 7 days</p>
-          </div>
-          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-            <p className="text-xs text-slate-400 mb-1">Inventory Turnover Ratio</p>
-            <p className="text-xl font-bold text-slate-100">6.8x</p>
-            <p className="text-xs text-emerald-400 mt-1">▲ 1.3x vs previous 7 days</p>
-          </div>
-          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-            <p className="text-xs text-slate-400 mb-1">Stockout Cost</p>
-            <p className="text-xl font-bold text-slate-100">{formatCurrency(symbol, 4350)}</p>
-            <p className="text-xs text-red-400 mt-1">▼ 8.7% vs previous 7 days</p>
-          </div>
-          <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
-            <p className="text-xs text-slate-400 mb-1">Forecast Accuracy</p>
-            <p className="text-xl font-bold text-slate-100">87.6%</p>
-            <p className="text-xs text-emerald-400 mt-1">▲ 5.4% vs previous 7 days</p>
-          </div>
+          <ResponsiveContainer width="100%" height="75%">
+            <LineChart data={INVENTORY_VALUE[invValueRange]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10, fill: "#475569" }} tickFormatter={(v) => `${symbol}${(v / 1000).toFixed(0)}k`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${formatCurrency(symbol, v)}`, "Value"]} />
+              <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-          {/* Inventory Value Over Time */}
-          <div className={`${cardClass} h-64`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Inventory Value Over Time</h2>
-              <select value={invValueRange} onChange={(e) => setInvValueRange(e.target.value)} className={selectClass}>
-                <option>7 Days</option>
-                <option>30 Days</option>
-              </select>
-            </div>
-            <ResponsiveContainer width="100%" height="75%">
-              <LineChart data={INVENTORY_VALUE[invValueRange]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fill: "#475569" }} tickFormatter={(v) => `${symbol}${(v / 1000).toFixed(0)}k`} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${formatCurrency(symbol, v)}`, "Value"]} />
-                <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Inventory Turnover Trend */}
+        <div className={`${cardClass} h-64`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Inventory Turnover Trend</h2>
+            <select value={turnoverRange} onChange={(e) => setTurnoverRange(e.target.value)} className={selectClass}>
+              <option>7 Days</option>
+              <option>30 Days</option>
+            </select>
           </div>
+          <ResponsiveContainer width="100%" height="75%">
+            <LineChart data={TURNOVER_TREND[turnoverRange]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10, fill: "#475569" }} tickFormatter={(v) => `${v}x`} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}x`, "Turnover"]} />
+              <Line type="monotone" dataKey="ratio" stroke="#10b981" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
-          {/* Inventory Turnover Trend */}
-          <div className={`${cardClass} h-64`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Inventory Turnover Trend</h2>
-              <select value={turnoverRange} onChange={(e) => setTurnoverRange(e.target.value)} className={selectClass}>
-                <option>7 Days</option>
-                <option>30 Days</option>
-              </select>
-            </div>
-            <ResponsiveContainer width="100%" height="75%">
-              <LineChart data={TURNOVER_TREND[turnoverRange]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
-                <YAxis tick={{ fontSize: 10, fill: "#475569" }} tickFormatter={(v) => `${v}x`} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}x`, "Turnover"]} />
-                <Line type="monotone" dataKey="ratio" stroke="#10b981" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+        {/* Top Performing Categories */}
+        <div className={`${cardClass} h-64`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Top Performing Categories</h2>
+            <select value={categoriesRange} onChange={(e) => setCategoriesRange(e.target.value)} className={selectClass}>
+              <option>7 Days</option>
+              <option>30 Days</option>
+            </select>
           </div>
+          <ResponsiveContainer width="100%" height="75%">
+            <PieChart>
+              <Pie
+                data={TOP_CATEGORIES[categoriesRange]}
+                cx="50%" cy="50%"
+                innerRadius={40} outerRadius={65}
+                dataKey="value"
+                paddingAngle={3}
+              >
+                {TOP_CATEGORIES[categoriesRange].map((_, i) => (
+                  <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Share"]} />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: "#94a3b8" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
 
-          {/* Top Performing Categories */}
-          <div className={`${cardClass} h-64`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Top Performing Categories</h2>
-              <select value={categoriesRange} onChange={(e) => setCategoriesRange(e.target.value)} className={selectClass}>
-                <option>7 Days</option>
-                <option>30 Days</option>
-              </select>
-            </div>
-            <ResponsiveContainer width="100%" height="75%">
+      </div>
+
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        {/* Stock Status Distribution */}
+        <div className={cardClass}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Stock Status Distribution</h2>
+            <select value={stockStatusRange} onChange={(e) => setStockStatusRange(e.target.value)} className={selectClass}>
+              <option>7 Days</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-center h-32">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={TOP_CATEGORIES[categoriesRange]}
+                  data={STOCK_STATUS[stockStatusRange]}
                   cx="50%" cy="50%"
-                  innerRadius={40} outerRadius={65}
+                  innerRadius={30} outerRadius={55}
                   dataKey="value"
                   paddingAngle={3}
                 >
-                  {TOP_CATEGORIES[categoriesRange].map((_, i) => (
-                    <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                  {STOCK_STATUS[stockStatusRange].map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Share"]} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, color: "#94a3b8" }} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name]} />
               </PieChart>
             </ResponsiveContainer>
           </div>
-
+          <ul className="mt-4 space-y-2 text-sm text-slate-400">
+            <li className="flex justify-between"><span>🟢 In Stock</span><span>782 (62.7%)</span></li>
+            <li className="flex justify-between"><span>🟡 Low Stock</span><span>{lowStockThreshold} threshold · 23 items</span></li>
+            <li className="flex justify-between"><span>🔴 Out of Stock</span><span>15 (12.0%)</span></li>
+            <li className="flex justify-between"><span>🔵 Overstock</span><span>23 (6.9%)</span></li>
+          </ul>
+          <div className="flex justify-between mt-4 text-sm font-semibold text-slate-200 border-t border-slate-700 pt-3">
+            <span>Total Products</span>
+            <span>1,248</span>
+          </div>
         </div>
 
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-          {/* Stock Status Distribution */}
-          <div className={cardClass}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Stock Status Distribution</h2>
-              <select value={stockStatusRange} onChange={(e) => setStockStatusRange(e.target.value)} className={selectClass}>
-                <option>7 Days</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-center h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={STOCK_STATUS[stockStatusRange]}
-                    cx="50%" cy="50%"
-                    innerRadius={30} outerRadius={55}
-                    dataKey="value"
-                    paddingAngle={3}
-                  >
-                    {STOCK_STATUS[stockStatusRange].map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v, name]} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <ul className="mt-4 space-y-2 text-sm text-slate-400">
-              <li className="flex justify-between"><span>🟢 In Stock</span><span>782 (62.7%)</span></li>
-              <li className="flex justify-between"><span>🟡 Low Stock</span><span>{lowStockThreshold} threshold · 23 items</span></li>
-              <li className="flex justify-between"><span>🔴 Out of Stock</span><span>15 (12.0%)</span></li>
-              <li className="flex justify-between"><span>🔵 Overstock</span><span>23 (6.9%)</span></li>
-            </ul>
-            <div className="flex justify-between mt-4 text-sm font-semibold text-slate-200 border-t border-slate-700 pt-3">
-              <span>Total Products</span>
-              <span>1,248</span>
-            </div>
+        {/* Inventory Age Analysis */}
+        <div className={cardClass}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Inventory Age Analysis</h2>
+            <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className={selectClass}>
+              <option>All Items</option>
+              <option>Electronics</option>
+              <option>Furniture</option>
+            </select>
           </div>
-
-          {/* Inventory Age Analysis */}
-          <div className={cardClass}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Inventory Age Analysis</h2>
-              <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className={selectClass}>
-                <option>All Items</option>
-                <option>Electronics</option>
-                <option>Furniture</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-center h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={INVENTORY_AGE[ageFilter]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="range" tick={{ fontSize: 10, fill: "#475569" }} />
-                  <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Items"]} />
-                  <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="flex items-center justify-center h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={INVENTORY_AGE[ageFilter]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="range" tick={{ fontSize: 10, fill: "#475569" }} />
+                <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Items"]} />
+                <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-
-          {/* Slow Moving Items */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold text-slate-200 mb-4">Slow Moving Items (Top 5)</h2>
-            <table className="w-full text-sm text-slate-400">
-              <thead>
-                <tr className="text-xs text-slate-500 border-b border-slate-700">
-                  <th className="text-left pb-2">Product</th>
-                  <th className="text-left pb-2">Days in Stock</th>
-                  <th className="text-right pb-2">Inventory Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                <tr><td className="py-2 text-slate-200">Ergonomic Chair</td><td>145</td><td className="text-right">{formatCurrency(symbol, 1150)}</td></tr>
-                <tr><td className="py-2 text-slate-200">Wireless Keyboard</td><td>132</td><td className="text-right">{formatCurrency(symbol, 680)}</td></tr>
-                <tr><td className="py-2 text-slate-200">Bluetooth Speaker</td><td>120</td><td className="text-right">{formatCurrency(symbol, 450)}</td></tr>
-                <tr><td className="py-2 text-slate-200">Desk Lamp</td><td>115</td><td className="text-right">{formatCurrency(symbol, 320)}</td></tr>
-                <tr><td className="py-2 text-slate-200">Office Table</td><td>110</td><td className="text-right">{formatCurrency(symbol, 2100)}</td></tr>
-              </tbody>
-            </table>
-            <button
-              onClick={() => setShowSlowMoving(true)}
-              className="text-xs text-indigo-400 mt-4 hover:underline"
-            >
-              View all slow moving items
-            </button>
-          </div>
-
         </div>
 
-        {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* Demand Forecast */}
-          <div className={cardClass}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-200">Demand Forecast</h2>
-              <select value={demandRange} onChange={(e) => setDemandRange(e.target.value)} className={selectClass}>
-                <option>14 Days</option>
-                <option>30 Days</option>
-                <option>60 Days</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-center h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={DEMAND_FORECAST[demandRange]}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Line type="monotone" dataKey="forecast" stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Forecast" />
-                  <Line type="monotone" dataKey="actual"   stroke="#10b981" strokeWidth={2} dot={false} name="Actual" connectNulls={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Insights & Recommendations */}
-          <div className={cardClass}>
-            <h2 className="text-sm font-semibold text-slate-200 mb-4">💡 Insights & Recommendations</h2>
-            <ul className="space-y-4 text-sm text-slate-400">
-              <li className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-emerald-400">Reduce Overstock</p>
-                  <p className="text-xs text-slate-500 mt-1">23 items are overstocked. Potential to reduce inventory value by {formatCurrency(symbol, 8240)}.</p>
-                </div>
-                <button onClick={() => setInsightModal(INSIGHTS[0])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
-              </li>
-              <li className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-amber-400">Reorder Soon</p>
-                  <p className="text-xs text-slate-500 mt-1">18 items are likely to run out of stock in the next 7 days.</p>
-                </div>
-                <button onClick={() => setInsightModal(INSIGHTS[1])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
-              </li>
-              <li className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-indigo-400">High Demand</p>
-                  <p className="text-xs text-slate-500 mt-1">Electronics category is trending up by 18.5% this week.</p>
-                </div>
-                <button onClick={() => setInsightModal(INSIGHTS[2])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
-              </li>
-            </ul>
-            <button
-              onClick={() => setShowAllInsights(true)}
-              className="text-xs text-indigo-400 mt-4 hover:underline"
-            >
-              View all insights
-            </button>
-          </div>
-
+        {/* Slow Moving Items */}
+        <div className={cardClass}>
+          <h2 className="text-sm font-semibold text-slate-200 mb-4">Slow Moving Items (Top 5)</h2>
+          <table className="w-full text-sm text-slate-400">
+            <thead>
+              <tr className="text-xs text-slate-500 border-b border-slate-700">
+                <th className="text-left pb-2">Product</th>
+                <th className="text-left pb-2">Days in Stock</th>
+                <th className="text-right pb-2">Inventory Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              <tr><td className="py-2 text-slate-200">Ergonomic Chair</td><td>145</td><td className="text-right">{formatCurrency(symbol, 1150)}</td></tr>
+              <tr><td className="py-2 text-slate-200">Wireless Keyboard</td><td>132</td><td className="text-right">{formatCurrency(symbol, 680)}</td></tr>
+              <tr><td className="py-2 text-slate-200">Bluetooth Speaker</td><td>120</td><td className="text-right">{formatCurrency(symbol, 450)}</td></tr>
+              <tr><td className="py-2 text-slate-200">Desk Lamp</td><td>115</td><td className="text-right">{formatCurrency(symbol, 320)}</td></tr>
+              <tr><td className="py-2 text-slate-200">Office Table</td><td>110</td><td className="text-right">{formatCurrency(symbol, 2100)}</td></tr>
+            </tbody>
+          </table>
+          <button
+            onClick={() => setShowSlowMoving(true)}
+            className="text-xs text-indigo-400 mt-4 hover:underline"
+          >
+            View all slow moving items
+          </button>
         </div>
 
-      </>}
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Demand Forecast */}
+        <div className={cardClass}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-200">Demand Forecast</h2>
+            <select value={demandRange} onChange={(e) => setDemandRange(e.target.value)} className={selectClass}>
+              <option>14 Days</option>
+              <option>30 Days</option>
+              <option>60 Days</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-center h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={DEMAND_FORECAST[demandRange]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 10, fill: "#475569" }} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="forecast" stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Forecast" />
+                <Line type="monotone" dataKey="actual"   stroke="#10b981" strokeWidth={2} dot={false} name="Actual" connectNulls={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Insights & Recommendations */}
+        <div className={cardClass}>
+          <h2 className="text-sm font-semibold text-slate-200 mb-4">💡 Insights & Recommendations</h2>
+          <ul className="space-y-4 text-sm text-slate-400">
+            <li className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-semibold text-emerald-400">Reduce Overstock</p>
+                <p className="text-xs text-slate-500 mt-1">23 items are overstocked. Potential to reduce inventory value by {formatCurrency(symbol, 8240)}.</p>
+              </div>
+              <button onClick={() => setInsightModal(INSIGHTS[0])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
+            </li>
+            <li className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-semibold text-amber-400">Reorder Soon</p>
+                <p className="text-xs text-slate-500 mt-1">18 items are likely to run out of stock in the next 7 days.</p>
+              </div>
+              <button onClick={() => setInsightModal(INSIGHTS[1])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
+            </li>
+            <li className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-semibold text-indigo-400">High Demand</p>
+                <p className="text-xs text-slate-500 mt-1">Electronics category is trending up by 18.5% this week.</p>
+              </div>
+              <button onClick={() => setInsightModal(INSIGHTS[2])} className="text-xs text-indigo-400 hover:underline whitespace-nowrap">View details</button>
+            </li>
+          </ul>
+          <button
+            onClick={() => setShowAllInsights(true)}
+            className="text-xs text-indigo-400 mt-4 hover:underline"
+          >
+            View all insights
+          </button>
+        </div>
+
+      </div>
 
     </main>
   );
