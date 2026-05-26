@@ -61,8 +61,8 @@ function Analytics() {
       try {
         setLoading(true);
         const [analysisRes, predictionsRes] = await Promise.all([
-          apiClient.get("/products/smart-analysis"),
-          apiClient.get("/products/ai-predictions")
+          apiClient.get("/analytics/smart-analysis"),
+          apiClient.get("/analytics/ai-predictions")
         ]);
 
         if (analysisRes.data?.success) setSmartData(analysisRes.data);

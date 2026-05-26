@@ -1,596 +1,315 @@
-import { useState } from "react";
+// Reports.jsx
+import { useState, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell,
 } from "recharts";
+import apiClient from "../api/client";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const ALL_REPORTS = [
-  { id: 1,  name: "Inventory Summary Report",    type: "Inventory Reports",   date: "May 18, 2024 10:30 AM", format: "PDF",   status: "Completed"  },
-  { id: 2,  name: "Stock Movement Report",       type: "Stock Movement",      date: "May 17, 2024 04:15 PM", format: "Excel", status: "Completed"  },
-  { id: 3,  name: "Low Stock Items Report",      type: "Inventory Reports",   date: "May 17, 2024 09:20 AM", format: "PDF",   status: "Completed"  },
-  { id: 4,  name: "Purchase Order Report",       type: "Transaction Reports", date: "May 16, 2024 03:45 PM", format: "Excel", status: "Completed"  },
-  { id: 5,  name: "Supplier Performance Report", type: "Supplier Reports",    date: "May 16, 2024 11:30 AM", format: "PDF",   status: "Processing" },
-  { id: 6,  name: "Overstock Analysis Report",   type: "Inventory Reports",   date: "May 15, 2024 02:00 PM", format: "PDF",   status: "Completed"  },
-  { id: 7,  name: "Weekly Stock Movement",       type: "Stock Movement",      date: "May 15, 2024 09:00 AM", format: "Excel", status: "Completed"  },
-  { id: 8,  name: "Reorder Level Report",        type: "Inventory Reports",   date: "May 14, 2024 11:00 AM", format: "PDF",   status: "Completed"  },
-  { id: 9,  name: "Transaction Summary",         type: "Transaction Reports", date: "May 14, 2024 08:30 AM", format: "Excel", status: "Completed"  },
-  { id: 10, name: "Supplier Scorecard",          type: "Supplier Reports",    date: "May 13, 2024 03:00 PM", format: "PDF",   status: "Completed"  },
-  { id: 11, name: "Dead Stock Report",           type: "Inventory Reports",   date: "May 13, 2024 10:00 AM", format: "PDF",   status: "Completed"  },
-  { id: 12, name: "Inbound Shipments Log",       type: "Stock Movement",      date: "May 12, 2024 04:00 PM", format: "Excel", status: "Completed"  },
-  { id: 13, name: "PO Variance Report",          type: "Transaction Reports", date: "May 12, 2024 01:00 PM", format: "PDF",   status: "Completed"  },
-  { id: 14, name: "Category Performance",        type: "Other Reports",       date: "May 11, 2024 09:00 AM", format: "PDF",   status: "Completed"  },
-  { id: 15, name: "Outbound Shipments Log",      type: "Stock Movement",      date: "May 10, 2024 02:30 PM", format: "Excel", status: "Completed"  },
-];
-
-const OVERVIEW_DATA = {
-  "7 Days": [
-    { day: "May 12", reports: 2 },
-    { day: "May 13", reports: 3 },
-    { day: "May 14", reports: 2 },
-    { day: "May 15", reports: 4 },
-    { day: "May 16", reports: 3 },
-    { day: "May 17", reports: 5 },
-    { day: "May 18", reports: 3 },
-  ],
-  "30 Days": Array.from({ length: 30 }, (_, i) => ({
-    day: `May ${i + 1}`,
-    reports: Math.floor(Math.random() * 5 + 1),
-  })),
-};
-
-const BY_TYPE_DATA = [
-  { name: "Inventory Reports",   value: 40, count: 10, color: "#6366f1" },
-  { name: "Stock Movement",      value: 25, count: 6,  color: "#10b981" },
-  { name: "Transaction Reports", value: 20, count: 5,  color: "#eab308" },
-  { name: "Supplier Reports",    value: 10, count: 2,  color: "#ef4444" },
-  { name: "Other Reports",       value: 5,  count: 1,  color: "#475569" },
-];
-
-const REPORT_TYPES = ["Inventory Reports", "Stock Movement", "Transaction Reports", "Supplier Reports", "Other Reports"];
-
-// ─── Shared styles ────────────────────────────────────────────────────────────
-
-const cardClass = "bg-slate-900 border border-slate-700 rounded-xl p-6";
-const selectClass = "text-xs border border-slate-600 rounded-lg px-2 py-1 outline-none bg-slate-800 text-slate-300";
+const cardClass  = "bg-slate-900 border border-slate-700/60 rounded-xl p-6 shadow-xl shadow-slate-950/20";
 const tooltipStyle = { backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px", color: "#94a3b8" };
-const inputClass = "w-full border border-slate-600 rounded-xl px-3 py-2 text-sm outline-none bg-slate-800 text-slate-200 placeholder-slate-500 focus:border-indigo-500";
-const labelClass = "text-xs text-slate-500 mb-1 block";
-
-// ─── Generate Report Modal ────────────────────────────────────────────────────
-
-function GenerateReportModal({ onClose, onGenerate }) {
-  const [form, setForm] = useState({ name: "", type: "Inventory Reports", format: "PDF", dateFrom: "", dateTo: "" });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const handleSubmit = () => {
-    if (!form.name.trim()) return alert("Please enter a report name.");
-    onGenerate(form);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-slate-100">Generate New Report</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className={labelClass}>Report Name</label>
-            <input
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Monthly Inventory Summary"
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Report Type</label>
-            <select value={form.type} onChange={(e) => set("type", e.target.value)} className={`${inputClass} cursor-pointer`}>
-              {REPORT_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Format</label>
-            <div className="flex gap-3">
-              {["PDF", "Excel"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => set("format", f)}
-                  className={`flex-1 py-2 text-sm rounded-xl border transition-colors ${
-                    form.format === f
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "border-slate-600 text-slate-400 hover:bg-slate-700"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className={labelClass}>Date From</label>
-              <input type="date" value={form.dateFrom} onChange={(e) => set("dateFrom", e.target.value)} className={inputClass} />
-            </div>
-            <div className="flex-1">
-              <label className={labelClass}>Date To</label>
-              <input type="date" value={form.dateTo} onChange={(e) => set("dateTo", e.target.value)} className={inputClass} />
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={handleSubmit} className="flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500">Generate</button>
-          <button onClick={onClose} className="flex-1 py-2 border border-slate-600 text-sm text-slate-300 rounded-xl hover:bg-slate-700">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Schedule Report Modal ────────────────────────────────────────────────────
-
-function ScheduleReportModal({ onClose }) {
-  const [form, setForm] = useState({ type: "Inventory Reports", frequency: "Weekly", time: "08:00", format: "PDF" });
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-slate-100">Schedule Automated Report</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className={labelClass}>Report Type</label>
-            <select value={form.type} onChange={(e) => set("type", e.target.value)} className={`${inputClass} cursor-pointer`}>
-              {REPORT_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>Frequency</label>
-            <div className="flex gap-2 flex-wrap">
-              {["Daily", "Weekly", "Monthly"].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => set("frequency", f)}
-                  className={`px-4 py-2 text-sm rounded-xl border transition-colors ${
-                    form.frequency === f
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "border-slate-600 text-slate-400 hover:bg-slate-700"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className={labelClass}>Send Time</label>
-            <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Format</label>
-            <div className="flex gap-3">
-              {["PDF", "Excel"].map((f) => (
-                <button key={f} onClick={() => set("format", f)}
-                  className={`flex-1 py-2 text-sm rounded-xl border transition-colors ${
-                    form.format === f
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "border-slate-600 text-slate-400 hover:bg-slate-700"
-                  }`}>
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500">Save Schedule</button>
-          <button onClick={onClose} className="flex-1 py-2 border border-slate-600 text-sm text-slate-300 rounded-xl hover:bg-slate-700">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Custom Report Modal ──────────────────────────────────────────────────────
-
-function CustomReportModal({ onClose, onGenerate }) {
-  const [selected, setSelected] = useState([]);
-  const [format, setFormat] = useState("PDF");
-  const fields = ["Inventory Value", "Stock Levels", "Turnover Rate", "Supplier Data", "Sales Data", "Transaction History", "Demand Forecast"];
-
-  const toggle = (f) => setSelected((s) => s.includes(f) ? s.filter((x) => x !== f) : [...s, f]);
-
-  const handleSubmit = () => {
-    if (!selected.length) return alert("Select at least one field.");
-    onGenerate({ name: "Custom Report", type: "Other Reports", format, fields: selected });
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-slate-100">Custom Report Builder</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
-        </div>
-        <p className="text-xs text-slate-500 mb-3">Select the fields to include in your custom report:</p>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {fields.map((f) => (
-            <button
-              key={f}
-              onClick={() => toggle(f)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                selected.includes(f)
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "border-slate-600 text-slate-400 hover:bg-slate-700"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div>
-          <label className={labelClass}>Format</label>
-          <div className="flex gap-3">
-            {["PDF", "Excel"].map((f) => (
-              <button key={f} onClick={() => setFormat(f)}
-                className={`flex-1 py-2 text-sm rounded-xl border transition-colors ${
-                  format === f
-                    ? "bg-indigo-600 text-white border-indigo-600"
-                    : "border-slate-600 text-slate-400 hover:bg-slate-700"
-                }`}>
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-3 mt-6">
-          <button onClick={handleSubmit} className="flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500">Build Report</button>
-          <button onClick={onClose} className="flex-1 py-2 border border-slate-600 text-sm text-slate-300 rounded-xl hover:bg-slate-700">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── All Reports Modal ────────────────────────────────────────────────────────
-
-function AllReportsModal({ reports, categoryFilter, onClose }) {
-  const [filter, setFilter] = useState(categoryFilter || "All");
-  const filtered = filter === "All" ? reports : reports.filter((r) => r.type === filter);
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/70 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-slate-100">All Reports</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-xl leading-none">✕</button>
-        </div>
-        <div className="flex gap-2 flex-wrap mb-4">
-          {["All", ...REPORT_TYPES].map((t) => (
-            <button key={t} onClick={() => setFilter(t)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                filter === t
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "border-slate-600 text-slate-400 hover:bg-slate-700"
-              }`}>
-              {t}
-            </button>
-          ))}
-        </div>
-        <table className="w-full text-sm text-slate-400">
-          <thead className="text-xs text-slate-500 border-b border-slate-700">
-            <tr>
-              <th className="text-left pb-3">Report Name</th>
-              <th className="text-left pb-3">Type</th>
-              <th className="text-left pb-3">Date</th>
-              <th className="text-left pb-3">Format</th>
-              <th className="text-left pb-3">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800">
-            {filtered.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-700/30">
-                <td className="py-3 text-slate-200">{r.name}</td>
-                <td className="py-3 text-xs text-slate-500">{r.type}</td>
-                <td className="py-3 text-xs text-slate-500">{r.date}</td>
-                <td className="py-3 text-xs text-slate-500">{r.format}</td>
-                <td className="py-3">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    r.status === "Completed"
-                      ? "bg-emerald-950 text-emerald-400"
-                      : "bg-yellow-950 text-yellow-400"
-                  }`}>
-                    {r.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button onClick={onClose} className="mt-6 w-full py-2 border border-slate-600 text-sm text-slate-300 rounded-xl hover:bg-slate-700">Close</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+const PIE_COLORS = ["#6366f1", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6"];
 
 function Reports() {
-  const [reports,        setReports]       = useState(ALL_REPORTS);
-  const [overviewRange,  setOverviewRange] = useState("7 Days");
-  const [showGenerate,   setShowGenerate]  = useState(false);
-  const [showSchedule,   setShowSchedule]  = useState(false);
-  const [showCustom,     setShowCustom]    = useState(false);
-  const [showAllReports, setShowAllReports] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [reportsList, setReportsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState(null);
+  const [downloadingType, setDownloadingType] = useState(null);
 
-  const totalReports   = reports.length;
-  const generatedMonth = reports.filter((r) => r.date.includes("May 2024")).length;
-  const lastReport     = reports[0];
+  // Load production database records on component mount
+  useEffect(() => {
+    const fetchOperationalData = async () => {
+      try {
+        setLoading(true);
+        const [prodRes, salesRes, reportsLogRes] = await Promise.all([
+          apiClient.get("/products"),
+          apiClient.get("/products/sales/all"),
+          apiClient.get("/reports/log")
+        ]);
 
-  const handleGenerate = (form) => {
-    const now = new Date();
-    const newReport = {
-      id: Date.now(),
-      name: form.name,
-      type: form.type,
-      date: now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " " +
-            now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
-      format: form.format,
-      status: "Processing",
+        if (prodRes.data?.success) setProducts(prodRes.data.data || []);
+        if (salesRes.data?.success) setSales(salesRes.data.data || []);
+        if (reportsLogRes.data?.success) setReportsList(reportsLogRes.data.data || []);
+      } catch (err) {
+        console.error("Critical report data fetch fault:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    setReports((prev) => [newReport, ...prev]);
-    setTimeout(() => {
-      setReports((prev) => prev.map((r) => r.id === newReport.id ? { ...r, status: "Completed" } : r));
-    }, 3000);
+    fetchOperationalData();
+  }, []);
+
+  // ─── DYNAMIC METRICS CALCULATION (NO MOCK DATA) ─────────────────────────
+  const totalStockCount = products.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+  const inventoryTotalAssetValue = products.reduce((acc, curr) => acc + ((curr.quantity || 0) * (curr.price || 0)), 0);
+  const totalGrossRevenueCleared = sales.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+
+  const categoryMap = {};
+  products.forEach(p => {
+    const cat = p.category || "General Catalog";
+    categoryMap[cat] = (categoryMap[cat] || 0) + (p.quantity || 0);
+  });
+  const liveCategoryPieData = Object.keys(categoryMap).map(key => ({ name: key, value: categoryMap[key] }));
+
+  const historicalSalesTimeline = sales.slice(-7).reverse().map((s, idx) => ({
+    label: s.unique_code || `TX-${idx + 1}`,
+    revenue: s.total_amount || 0,
+    units: s.quantity_sold || 1
+  }));
+
+  // ─── FULL BINARY STREAM PDF GENERATION DISPATCHER ────────────────────────
+  const handlePdfGeneration = async (reportType) => {
+    try {
+      setDownloadingType(reportType);
+      
+      // Axios configuration using 'blob' response type for native file parsing
+      const response = await apiClient.post(
+        "/reports/generate",
+        { type: reportType },
+        { responseType: "blob" }
+      );
+
+      // Create browser-executable blob pointer
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `${reportType.replace(/\s+/g, "_")}_${Date.now()}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup browser cache allocations
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      // Re-fetch historical registry to instantly output the new item in log list
+      const updatedLog = await apiClient.get("/reports/log");
+      if (updatedLog.data?.success) setReportsList(updatedLog.data.data);
+
+    } catch (error) {
+      console.error("PDF generation execution fault:", error);
+      alert("Failed to build printable PDF document stream. Ensure backend has 'pdfkit' configured.");
+    } finally {
+      setDownloadingType(null);
+    }
   };
 
-  const exportData = () => {
-    const header = ["ID", "Report Name", "Type", "Date Generated", "Format", "Status"];
-    const rows = reports.map((r) => [r.id, `"${r.name}"`, r.type, r.date, r.format, r.status]);
-    const csv  = [header, ...rows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = "reports-export.csv"; link.click();
-    URL.revokeObjectURL(url);
-  };
+  const filteredReports = activeCategory ? reportsList.filter(r => r.type === activeCategory) : reportsList;
 
-  const openCategory = (cat) => { setCategoryFilter(cat); setShowAllReports(true); };
-  const recentReports = reports.slice(0, 5);
+  if (loading) {
+    return (
+      <div className="flex-1 bg-slate-800 p-8 min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-t-indigo-500 border-slate-700 rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-400 font-mono text-xs italic">Compiling live warehouse data streams...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="flex-1 bg-slate-800 p-8">
-
-      {/* Modals */}
-      {showGenerate   && <GenerateReportModal  onClose={() => setShowGenerate(false)}  onGenerate={handleGenerate} />}
-      {showSchedule   && <ScheduleReportModal  onClose={() => setShowSchedule(false)}  />}
-      {showCustom     && <CustomReportModal    onClose={() => setShowCustom(false)}    onGenerate={handleGenerate} />}
-      {showAllReports && <AllReportsModal      reports={reports} categoryFilter={categoryFilter} onClose={() => { setShowAllReports(false); setCategoryFilter(null); }} />}
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+    <main className="flex-1 bg-slate-800 p-8 min-h-screen text-slate-100 font-sans selection:bg-indigo-500/30">
+      
+      {/* Upper Navigation Meta Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">Reports</h1>
-          <p className="text-sm text-slate-400 mt-1">View and analyze your inventory reports</p>
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            System Auditing & Reports
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">On-demand corporate data compilation and real-time PDF generation.</p>
         </div>
-        <button
-          onClick={() => setShowGenerate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-500 mt-1"
-        >
-          + Generate Report
-        </button>
+        <div className="text-xs font-mono bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-slate-400 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Live Database Synced
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-slate-900 border border-slate-700 p-5 rounded-xl">
-          <p className="text-xs text-slate-400 mb-1">Total Reports</p>
-          <p className="text-3xl font-bold text-slate-100">{totalReports}</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 20% vs last month</p>
-        </div>
-        <div className="bg-slate-900 border border-slate-700 p-5 rounded-xl">
-          <p className="text-xs text-slate-400 mb-1">Generated This Month</p>
-          <p className="text-3xl font-bold text-slate-100">{generatedMonth}</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 14% vs last month</p>
-        </div>
-        <div className="bg-slate-900 border border-slate-700 p-5 rounded-xl">
-          <p className="text-xs text-slate-400 mb-1">Downloads</p>
-          <p className="text-3xl font-bold text-slate-100">156</p>
-          <p className="text-xs text-emerald-400 mt-1">▲ 12% vs last month</p>
-        </div>
-        <div className="bg-slate-900 border border-slate-700 p-5 rounded-xl">
-          <p className="text-xs text-slate-400 mb-1">Last Generated</p>
-          <p className="text-2xl font-bold text-slate-100">
-            {lastReport ? lastReport.date.split(" ").slice(0, 3).join(" ") : "—"}
+      {/* Numerical Performance Metric Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className={`${cardClass} border-l-4 border-l-emerald-500`}>
+          <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Gross Revenue Logged</p>
+          <p className="text-2xl font-black text-emerald-400 mt-2 font-mono">
+            ₦{totalGrossRevenueCleared.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            {lastReport ? lastReport.date.split(" ").slice(3).join(" ") : ""}
+        </div>
+        <div className={`${cardClass} border-l-4 border-l-indigo-500`}>
+          <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Current Catalog Units</p>
+          <p className="text-2xl font-black text-indigo-400 mt-2 font-mono">
+            {totalStockCount.toLocaleString()} <span className="text-xs font-normal text-slate-500">Units</span>
+          </p>
+        </div>
+        <div className={`${cardClass} border-l-4 border-l-amber-500`}>
+          <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Estimated Vault Valuation</p>
+          <p className="text-2xl font-black text-amber-500 mt-2 font-mono">
+            ₦{inventoryTotalAssetValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
           </p>
         </div>
       </div>
 
-      {/* Middle Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-        {/* Reports Overview */}
-        <div className={`${cardClass} h-72`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-200">Reports Overview</h2>
-            <select value={overviewRange} onChange={(e) => setOverviewRange(e.target.value)} className={selectClass}>
-              <option>7 Days</option>
-              <option>30 Days</option>
-            </select>
-          </div>
-          <ResponsiveContainer width="100%" height="82%">
-            <LineChart data={OVERVIEW_DATA[overviewRange]}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#475569" }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 10, fill: "#475569" }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [v, "Reports"]} />
-              <Line type="monotone" dataKey="reports" stroke="#6366f1" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Reports by Type */}
-        <div className={`${cardClass} h-72`}>
-          <h2 className="text-sm font-semibold text-slate-200 mb-4">Reports by Type</h2>
-          <div className="flex items-center gap-4">
-            <div className="w-32 h-32 shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={BY_TYPE_DATA} cx="50%" cy="50%" innerRadius={28} outerRadius={52} dataKey="value" paddingAngle={3}>
-                    {BY_TYPE_DATA.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [`${v}%`, name]} />
-                </PieChart>
+      {/* Main Analysis Visual Split Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* Charts & Interactive Generation Cards */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className={`${cardClass} h-64`}>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-4">Recent Sales Trend Flow</h3>
+            {historicalSalesTimeline.length > 0 ? (
+              <ResponsiveContainer width="100%" height="80%">
+                <LineChart data={historicalSalesTimeline}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#64748b" }} />
+                  <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} name="Revenue (₦)" />
+                </LineChart>
               </ResponsiveContainer>
+            ) : (
+              <p className="text-xs text-slate-500 italic py-12 text-center">No transaction variables recorded yet.</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={cardClass}>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">Inventory Categorized Split</h3>
+              {liveCategoryPieData.length > 0 ? (
+                <div className="h-40 flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={liveCategoryPieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value" paddingAngle={4}>
+                        {liveCategoryPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic text-center py-12">No inventory categories assigned.</p>
+              )}
             </div>
-            <ul className="space-y-2 text-xs text-slate-400">
-              <li className="flex justify-between gap-4"><span>🔵 Inventory Reports</span><span>40% (10)</span></li>
-              <li className="flex justify-between gap-4"><span>🟢 Stock Movement</span><span>25% (6)</span></li>
-              <li className="flex justify-between gap-4"><span>🟡 Transaction Reports</span><span>20% (5)</span></li>
-              <li className="flex justify-between gap-4"><span>🔴 Supplier Reports</span><span>10% (2)</span></li>
-              <li className="flex justify-between gap-4"><span>⚫ Other Reports</span><span>5% (1)</span></li>
+
+            {/* Live Interactive Actions Execution Engine Container */}
+            <div className={cardClass}>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-3">⚡ On-Demand PDF Compilation Engine</h3>
+              <div className="space-y-2.5">
+                <button
+                  disabled={downloadingType !== null}
+                  onClick={() => handlePdfGeneration("Inventory Reports")}
+                  className="w-full flex items-center justify-between p-3 text-left text-xs bg-slate-950/40 border border-slate-800 rounded-xl hover:border-indigo-500/80 hover:bg-indigo-950/20 text-slate-200 transition-all group font-medium"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>📊</span> Compile Master Inventory PDF Report
+                  </span>
+                  <span className="text-slate-500 group-hover:text-indigo-400 font-mono transition-colors">
+                    {downloadingType === "Inventory Reports" ? "Compiling..." : "Run →"}
+                  </span>
+                </button>
+                <button
+                  disabled={downloadingType !== null}
+                  onClick={() => handlePdfGeneration("Transaction Reports")}
+                  className="w-full flex items-center justify-between p-3 text-left text-xs bg-slate-950/40 border border-slate-800 rounded-xl hover:border-emerald-500/80 hover:bg-emerald-950/20 text-slate-200 transition-all group font-medium"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span>🔄</span> Compile Checkout Transactions Audit Ledger
+                  </span>
+                  <span className="text-slate-500 group-hover:text-emerald-400 font-mono transition-colors">
+                    {downloadingType === "Transaction Reports" ? "Compiling..." : "Run →"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Categories Filtering Control Column */}
+        <div className="space-y-6">
+          <div className={cardClass}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Report Categories Filter</h3>
+              {activeCategory && (
+                <button onClick={() => setActiveCategory(null)} className="text-[10px] text-indigo-400 hover:underline">
+                  Reset Filter
+                </button>
+              )}
+            </div>
+            <ul className="space-y-2 text-xs">
+              {["Inventory Reports", "Transaction Reports"].map(catName => (
+                <li
+                  key={catName}
+                  onClick={() => setActiveCategory(catName)}
+                  className={`flex justify-between items-center p-3 rounded-xl cursor-pointer border transition-all ${
+                    activeCategory === catName
+                      ? "bg-indigo-950/40 border-indigo-500 text-indigo-300 font-semibold shadow-lg shadow-indigo-950/20"
+                      : "bg-slate-950/20 border-slate-800 text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>📋</span> {catName}
+                  </span>
+                  <span className="font-mono text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-slate-300 font-bold">
+                    {reportsList.filter(r => r.type === catName).length}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
-          <div className="flex justify-between mt-4 text-sm font-semibold text-slate-200 border-t border-slate-700 pt-3">
-            <span>Total</span>
-            <span>{totalReports}</span>
-          </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className={`${cardClass} h-72 flex flex-col`}>
-          <h2 className="text-sm font-semibold text-slate-200 mb-4">Quick Actions</h2>
-          <ul className="space-y-1 overflow-y-auto flex-1 pr-1">
-            <li onClick={() => setShowGenerate(true)} className="flex items-start gap-3 cursor-pointer hover:bg-slate-800 p-2 rounded-xl transition-colors">
-              <div className="bg-slate-700 p-2 rounded-lg text-lg">➕</div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Generate Report</p>
-                <p className="text-xs text-slate-500">Create a new report</p>
-              </div>
-            </li>
-            <li onClick={() => setShowSchedule(true)} className="flex items-start gap-3 cursor-pointer hover:bg-slate-800 p-2 rounded-xl transition-colors">
-              <div className="bg-slate-700 p-2 rounded-lg text-lg">📅</div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Schedule Report</p>
-                <p className="text-xs text-slate-500">Set up automated reports</p>
-              </div>
-            </li>
-            <li onClick={exportData} className="flex items-start gap-3 cursor-pointer hover:bg-slate-800 p-2 rounded-xl transition-colors">
-              <div className="bg-slate-700 p-2 rounded-lg text-lg">⬇️</div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Export Data</p>
-                <p className="text-xs text-slate-500">Export report data</p>
-              </div>
-            </li>
-            <li onClick={() => setShowCustom(true)} className="flex items-start gap-3 cursor-pointer hover:bg-slate-800 p-2 rounded-xl transition-colors">
-              <div className="bg-slate-700 p-2 rounded-lg text-lg">📋</div>
-              <div>
-                <p className="text-sm font-medium text-slate-200">Custom Report</p>
-                <p className="text-xs text-slate-500">Create custom report</p>
-              </div>
-            </li>
-          </ul>
-        </div>
-
       </div>
 
-      {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Recent Reports Table */}
-        <div className={`${cardClass} lg:col-span-2`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-200">Recent Reports</h2>
-            <button
-              onClick={() => { setCategoryFilter(null); setShowAllReports(true); }}
-              className="text-xs text-indigo-400 hover:underline"
-            >
-              View all
-            </button>
-          </div>
-          <table className="w-full text-sm text-slate-400">
-            <thead className="text-xs text-slate-500 border-b border-slate-700">
+      {/* Historical Logs Pipeline View Table Card Container */}
+      <div className={cardClass}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Historical Export Lifecycle Log</h3>
+          <span className="text-[10px] font-mono bg-slate-950 px-2 py-1 rounded text-slate-500">
+            Showing {filteredReports.length} Document Streams
+          </span>
+        </div>
+        
+        <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+          <table className="w-full text-xs text-left text-slate-400">
+            <thead className="bg-slate-950/60 text-slate-500 font-mono tracking-wider text-[11px] border-b border-slate-800">
               <tr>
-                <th className="text-left pb-3">Report Name</th>
-                <th className="text-left pb-3">Type</th>
-                <th className="text-left pb-3">Date Generated</th>
-                <th className="text-left pb-3">Format</th>
-                <th className="text-left pb-3">Status</th>
+                <th className="p-4">Reference ID</th>
+                <th className="p-4">Document Profile Title</th>
+                <th className="p-4">Category Type</th>
+                <th className="p-4">Generated At</th>
+                <th className="p-4 text-center">Format</th>
+                <th className="p-4 text-right">Channel Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
-              {recentReports.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-800/50">
-                  <td className="py-3 text-slate-200">{r.name}</td>
-                  <td className="py-3 text-xs text-slate-500">{r.type}</td>
-                  <td className="py-3 text-xs text-slate-500">{r.date}</td>
-                  <td className="py-3 text-xs text-slate-500">{r.format}</td>
-                  <td className="py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      r.status === "Completed"
-                        ? "bg-emerald-950 text-emerald-400"
-                        : "bg-yellow-950 text-yellow-400"
-                    }`}>
-                      {r.status}
-                    </span>
+            <tbody className="divide-y divide-slate-800/60 font-mono">
+              {filteredReports.length > 0 ? (
+                filteredReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-slate-800/20 group transition-colors">
+                    <td className="p-4 font-bold text-slate-400 group-hover:text-indigo-400 transition-colors">{report.id}</td>
+                    <td className="p-4 text-slate-200 font-sans font-medium">{report.name}</td>
+                    <td className="p-4 text-[11px] font-sans text-slate-400">{report.type}</td>
+                    <td className="p-4 text-[11px] text-slate-500">{report.date}</td>
+                    <td className="p-4 text-center">
+                      <span className="px-2 py-0.5 bg-slate-950 rounded border border-slate-700 text-[10px] text-red-400 font-bold">
+                        {report.format}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <span className="text-[10px] text-emerald-400 font-sans font-medium px-2 py-0.5 bg-emerald-950/40 border border-emerald-900/40 rounded-full">
+                        ✓ {report.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-slate-500 italic font-sans">
+                    No matching report logs found. Run a compilation above to instantiate a track.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
-          <button
-            onClick={() => { setCategoryFilter(null); setShowAllReports(true); }}
-            className="text-xs text-indigo-400 mt-4 hover:underline w-full text-center"
-          >
-            View all reports
-          </button>
         </div>
-
-        {/* Report Categories */}
-        <div className={cardClass}>
-          <h2 className="text-sm font-semibold text-slate-200 mb-4">Report Categories</h2>
-          <ul className="space-y-1">
-            {[
-              { type: "Inventory Reports",   icon: "📄" },
-              { type: "Stock Movement",      icon: "📦" },
-              { type: "Transaction Reports", icon: "🔄" },
-              { type: "Supplier Reports",    icon: "🤝" },
-              { type: "Other Reports",       icon: "📊" },
-            ].map(({ type, icon }) => (
-              <li
-                key={type}
-                onClick={() => openCategory(type)}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-800 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{icon}</span>
-                  <span className="text-sm text-slate-300">{type}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-slate-500">
-                  <span>{reports.filter((r) => r.type === type).length}</span>
-                  <span>›</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
       </div>
-
     </main>
   );
 }
