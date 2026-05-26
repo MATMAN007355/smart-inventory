@@ -1200,7 +1200,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import apiClient from "../api/client"; 
+import apiClient from "../api/client"; // Custom API client with automatic sessionStorage auth interceptor
 import {
   LineChart,
   Line,
@@ -1308,8 +1308,8 @@ const Dashboard = () => {
     const fetchPredictions = async () => {
       try {
         setPredictionsLoading(true);
-        // Using relative path as the base URL handles formatting automatically
-        const response = await apiClient.get("/v1/inventory/ai-predictions");
+        // Automatically formats request base path internally
+        const response = await apiClient.get("/products/ai-predictions");
         
         if (response.data && response.data.predictions) {
           setAiPredictions(response.data.predictions);
@@ -1367,7 +1367,7 @@ const Dashboard = () => {
         setAiMessages([
           {
             sender: "ai",
-            text: `Hello! I've audited your warehouse logs. You currently have ${(lowStockItems || []).length} items low on stock. Your inventory asset balance rests at ${fmtCurrency(totalInventoryValue)}. How can I assist you today?`,
+            text: `Hello! I've audited your database logs. You currently have ${(lowStockItems || []).length} items low on stock. Your inventory asset balance rests at ${fmtCurrency(totalInventoryValue)}. How can I assist you today?`,
           },
         ]);
         setIsAiTyping(false);
@@ -1492,7 +1492,7 @@ const Dashboard = () => {
           <p className={`text-2xl font-bold ${lowStockItems?.length > 0 ? 'text-amber-400' : 'text-slate-100'}`}>
             {lowStockItems?.length > 0 ? lowStockItems.length : "No Data"}
           </p>
-          <p className="text-xs text-slate-500 mt-1">≤ 10 units remaining</p>
+          <p className="text-xs text-slate-500 mt-1">≤ 5 units remaining</p>
         </div>
         <div className="bg-slate-900 p-5 rounded-xl border border-slate-700">
           <p className="text-xs text-slate-400 mb-1">Stock Movements</p>
@@ -1738,7 +1738,7 @@ const Dashboard = () => {
                   <th className="text-left pb-2">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-880">
+              <tbody className="divide-y divide-slate-800">
                 {filteredLowStock && filteredLowStock.length > 0 ? (
                   filteredLowStock.slice(0, 5).map((item) => (
                     <tr key={item.unique_code || item.product_name} className="hover:bg-slate-800">
