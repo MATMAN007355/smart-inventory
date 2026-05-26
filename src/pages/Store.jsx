@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useInventory } from "./InventoryContext";
 import apiClient from "../api/client";
-import { useReactToPrint } from "react-to-print"; 
-import {Receipt} from "../components/receipt/Receipt"; 
 
 const formatNaira = (amount) => "₦" + Number(amount).toLocaleString("en-NG");
 
@@ -20,7 +18,7 @@ function useClockTick() {
 }
 
 export default function Store() {
-  const { products, refreshProducts } = useInventory(); // Destructured missing refreshProducts function context safely
+  const { products } = useInventory();
 
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState([]);
@@ -33,44 +31,10 @@ export default function Store() {
   const [sellError, setSellError] = useState(null);
   const [stockWarning, setStockWarning] = useState("");
   const clock = useClockTick();
+
   const [loading, setLoading] = useState(false);
 
-  // Cashier parsing from sessionStorage or fallback configuration context structures
-  const [cashierName, setCashierName] = useState("Sales Assistant");
-
-  // Create references targeting the hidden thermal layouts element structures
-  const receiptRef = useRef();
-
-  // Configure print system runtime controls
-  const handlePrint = useReactToPrint({
-    contentRef: receiptRef,
-    documentTitle: "POS_Sale_Receipt",
-  });
-
-  // Decode cashier info on initial component mounting hook iterations
-  useEffect(() => {
-    try {
-      const token = sessionStorage.getItem("token");
-      if (token) {
-        // Safe check to decode payload parameters if JWT configurations are configured matching your API structure
-        const base64Url = token.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        const user = JSON.parse(jsonPayload);
-        if (user?.name || user?.username) {
-          setCashierName(user.name || user.username);
-        }
-      }
-    } catch (e) {
-      // console.log("Token details parsing unavailable", e);
-    }
-  }, []);
-
+  // Auto-dismiss stock warning after 3 seconds
   useEffect(() => {
     if (!stockWarning) return;
     const t = setTimeout(() => setStockWarning(""), 3000);
@@ -80,16 +44,18 @@ export default function Store() {
   const filtered = products.filter(
     (p) =>
       p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
+      (p.category && p.category.toLowerCase().includes(search.toLowerCase())),
   );
 
   const addToCart = (product) => {
+    // Block adding out-of-stock items
     if (product.quantity === 0) return;
+
     setCart((prev) => {
       const existing = prev.find((i) => i._id === product._id);
       if (existing) {
         return prev.map((i) =>
-          i._id === product._id ? { ...i, qty: i.qty + 1 } : i
+          i._id === product._id ? { ...i, qty: i.qty + 1 } : i,
         );
       }
       return [...prev, { ...product, qty: 1 }];
@@ -107,19 +73,22 @@ export default function Store() {
           const newQty = i.qty + delta;
           return { ...i, qty: newQty };
         })
-        .filter((i) => i.qty > 0)
+        .filter((i) => i.qty > 0),
     );
   };
 
   const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+  // Count total units selected (not distinct items)
   const cartCount = cart.reduce((sum, i) => sum + i.qty, 0);
+  // Disable proceed if any item exceeds its available stock
   const hasStockExceeded = cart.some((i) => i.qty > i.quantity);
 
   const validatePhone = (value) => {
     const digits = value.replace(/\D/g, "");
     if (!value.trim()) return "Phone number is required.";
     if (digits.length < 10) return "Phone number must be at least 10 digits.";
-    if (!/^\+?[\d\s\-().]{10,}$/.test(value)) return "Enter a valid phone number.";
+    if (!/^\+?[\d\s\-().]{10,}$/.test(value))
+      return "Enter a valid phone number.";
     return "";
   };
 
@@ -143,33 +112,35 @@ export default function Store() {
 
   const confirmPayment = async () => {
     setSellError(null);
-    setLoading(true);
+      setLoading(true);
     try {
       if (cart.length === 0) {
         setSellError("Cart is empty");
         return;
       }
 
+      // ✅ Get token directly
       const token = sessionStorage.getItem("token");
+
+      // console.log("Token for sale request:", token);
 
       if (!token) {
         setSellError("Session expired. Please login again.");
         return;
       }
 
+      const results = [];
+
       for (const item of cart) {
-        await apiClient.post(`/products/${item.unique_code}/sell`, {
+        const res = await apiClient.post(`/products/${item.unique_code}/sell`, {
           quantity_sold: item.qty,
         });
+
+        results.push(res.data);
       }
 
       setPaymentDone(true);
       setPaymentModal(false);
-
-      // Trigger standard physical print window immediately following system API validation confirmations
-      setTimeout(() => {
-        handlePrint();
-      }, 100);
 
       setTimeout(() => {
         setCart([]);
@@ -178,35 +149,43 @@ export default function Store() {
         setPaymentDone(false);
       }, 2000);
 
+    
       await refreshProducts();
     } catch (err) {
-      const message = err.response?.data?.message || "Sale failed. Please try again.";
+      // console.log("SELL ERROR:", err.response);
+
+      const message =
+        err.response?.data?.message || "Sale failed. Please try again.";
+
       setSellError(message);
-    } finally {
-      setLoading(false);
+    }finally{
+        setLoading(false);
     }
   };
 
-  // Modern print handler replaces string array map window generation mechanics
   const handleReprint = () => {
-    if (cart.length === 0) return alert("No receipt items present to print.");
-    handlePrint();
+    if (!customerName.trim())
+      return alert("No receipt to reprint — cart is empty.");
+    const lines = [,
+      `Customer: ${customerName}`,
+      `Phone: ${phone}`,
+      "--------------------------------",
+      ...cart.map(
+        (i) => `${i.product_name} (x${i.qty})  ${formatNaira(i.price * i.qty)}`,
+      ),
+      "--------------------------------",
+      `TOTAL: ${formatNaira(total)}`,
+      "================================",
+    ].join("\n");
+    const win = window.open("", "_blank");
+    win.document.write(
+      `<pre style="font-family:monospace;font-size:14px;padding:24px">${lines}</pre>`,
+    );
+    win.print();
   };
 
   return (
     <div style={s.root}>
-      {/* ─── HIDDEN ACCESSIBILITY COMPONENT NODE USED FOR OS THERMAL ROUTING ─── */}
-      <div style={{ display: "none" }}>
-        <Receipt
-          ref={receiptRef}
-          cart={cart}
-          total={total}
-          customerName={customerName}
-          customerPhone={phone}
-          cashierName={cashierName}
-        />
-      </div>
-
       <aside style={{ ...s.sidebar, width: sidebarOpen ? 196 : 52 }}>
         <nav style={s.nav}>
           <div style={s.navItem}>
@@ -229,11 +208,12 @@ export default function Store() {
           <div style={s.topbarRight}>
             <button style={s.btnLogout}>Logout</button>
             <button style={s.btnReprint} onClick={handleReprint}>
-              🎫 Print / Re-print Receipt
+              Re-print Receipt
             </button>
           </div>
         </header>
 
+        {/* Stock warning toast */}
         {stockWarning && <div style={s.warningToast}>⚠️ {stockWarning}</div>}
 
         <div style={s.content}>
@@ -261,6 +241,17 @@ export default function Store() {
                       opacity: isOutOfStock ? 0.75 : 1,
                     }}
                     onClick={() => !isOutOfStock && addToCart(product)}
+                    onMouseEnter={(e) => {
+                      if (isOutOfStock) return;
+                      e.currentTarget.style.transform = "translateY(-3px)";
+                      e.currentTarget.style.boxShadow =
+                        "0 6px 18px rgba(0,0,0,0.12)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow =
+                        "0 1px 4px rgba(0,0,0,0.08)";
+                    }}
                   >
                     <div style={{ ...s.cardImg, position: "relative" }}>
                       {isOutOfStock && (
@@ -392,9 +383,11 @@ export default function Store() {
                       </div>
                     </div>
 
+                    {/* Per-item stock exceeded warning */}
                     {item.qty > item.quantity && (
                       <p style={s.itemStockWarning}>
-                        ⚠️ Exceeds available stock ({item.quantity} units) — reduce qty to proceed
+                        ⚠️ Exceeds available stock ({item.quantity} units) —
+                        reduce qty to proceed
                       </p>
                     )}
                   </div>
@@ -411,7 +404,10 @@ export default function Store() {
               style={{
                 ...s.proceedBtn,
                 opacity: cart.length === 0 || hasStockExceeded ? 0.5 : 1,
-                cursor: cart.length === 0 || hasStockExceeded ? "not-allowed" : "pointer",
+                cursor:
+                  cart.length === 0 || hasStockExceeded
+                    ? "not-allowed"
+                    : "pointer",
               }}
               onClick={handleProceed}
               disabled={cart.length === 0 || hasStockExceeded}
@@ -467,7 +463,6 @@ export default function Store() {
     </div>
   );
 }
-
 
 const s = {
   root: {
@@ -879,4 +874,5 @@ const s = {
   },
 };
 
-// products/sales/all
+
+
